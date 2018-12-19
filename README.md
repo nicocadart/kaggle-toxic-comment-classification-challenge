@@ -6,3 +6,33 @@ Kaggle Challenge : Toxic Comment Classification, for course OPT7 of master AIC a
 Autors : M. Bauw, N. Cadart, B. Sarthou
 
 Date : February 2019
+
+- TF IDF va être utile car des termes grossiers reviennent tout le temps et ça vire les mots inutiles
+- 3 niveaux de tâches: preprocess, quantification/description, classification
+- Première classification binaire clean/pas clean ie est-ce qu'une classe au moins est à 1, puis multiclasse pour savoir le(s)quel(s) sont à 1
+- **Première difficulté:** classification multiclasse non exclusive
+
+https://nlp.stanford.edu/IR-book/html/htmledition/classification-with-more-than-two-classes-1.html
+
+On pourrait donc partir sur 6 classifieurs binaires indépendants - AU FINAL NON (?)
+
+- **Deuxième difficulté:** déséquilibre des classes, utiliser une loss adaptée augmentant comme il faut le poids de la classe sous représentée
+- **Troisième difficulté:** pauvreté 
+
+### Première solution
+
+LSTM + max pooling + denses avec du dropout sur chaque dense, code dispo avec Keras
+
+https://www.kaggle.com/sbongo/for-beginners-tackling-toxic-using-keras
+
+Commencer par ça puis passer sous PyTorch ?
+
+### Intégrer le réseau suggéré par Allauzen
+
+## Première étape - répartition
+
+- lire les kernels pour se retrouver dans le paysage des solutions et prétraitements
+- implémenter le baseline (kernel Kaggle - cf. url ci-dessus LSTM, pooling etc)
+- implémenter le modèle d'Allauzen
+- implémenter le modèle GRU (kernel Kaggle bidirectional GRU)
+- implémenter une baseline sans embeddings/qui ne soit pas du deep learning
