@@ -27,7 +27,6 @@ https://www.kaggle.com/sbongo/for-beginners-tackling-toxic-using-keras
 
 Commencer par ça puis passer sous PyTorch ?
 
-### Intégrer le réseau suggéré par Allauzen
 
 ## Première étape - répartition
 
