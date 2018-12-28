@@ -41,6 +41,7 @@ Commencer par ça puis passer sous PyTorch ?
 ## Plus d'idées
 
 - Utiliser des embeddings déjà entraînés. Voir [GloVe](https://blog.keras.io/using-pre-trained-word-embeddings-in-a-keras-model.html)
+- transform_dataset & clean_comment() --> tranformer en classe pour passer plus de paramètres au callback
 
 
 ## Embedding + LSTM + 2 FC
