@@ -1,6 +1,6 @@
 import csv
 import numpy as np
-import re    # for regex
+import re  # for regex
 
 import pandas as pd
 from sklearn.metrics import roc_auc_score
@@ -26,6 +26,7 @@ class RocAucEvaluation(Callback):
     """
     Keras callback to be called after each epoch to compute ROC-AUC score on validation set.
     """
+
     def __init__(self, validation_data=(), interval=1):
         """
         Object constructor
@@ -70,7 +71,6 @@ def submission(y, id_list, name, dir='data/', list_classes=CLASSES):
         list_classes: list, list of string naming each class
     """
     with open(dir + name + '.csv', 'w') as csvfile:
-
         writer = csv.writer(csvfile, delimiter=',')
         writer.writerow(['id'] + list_classes)
 
@@ -147,7 +147,7 @@ def save_nnet(model, name, dir="models/"):
 #########################################
 
 
-def clean_comment(comment):
+def clean_comment(comment, lower=True, lemma=True, stop_words=True):
     """
     @brief: This function receives comments and returns clean word-list
     (from https://www.kaggle.com/jagangupta/stop-the-s-toxic-comments-eda)
@@ -158,43 +158,49 @@ def clean_comment(comment):
     @return:
         clean_comment: string, cleaned sentence
     """
-    eng_stopwords = set(stopwords.words("english"))
-
-    lem = WordNetLemmatizer()
-    tokenizer = TweetTokenizer()
-
     # Convert to lower case , so that Hi and hi are the same
-    comment = comment.lower()
+    if lower:
+        comment = comment.lower()
+
     # remove \n
     comment = re.sub("\\n", " ", comment)
     # remove leaky elements like ip,user
     comment = re.sub("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", "", comment)
     # removing usernames
     comment = re.sub("\[\[.*\]", "", comment)
-
-    # Split the sentences into words
-    words = tokenizer.tokenize(comment)
-
-    # remove stop_words and reduce words to lemma
-    words = [lem.lemmatize(word, "v") for word in words]
-    words = [w for w in words if not w in eng_stopwords]
-
-    clean_comment = " ".join(words)
-
     # remove any non alphanum, digit character
-    clean_comment = re.sub("\W+"," ",clean_comment)
+    clean_comment = re.sub("\W+", " ", comment)
 
-    return(clean_comment)
+    # If processing has to be on words
+    if lemma or stop_words:
+
+        # Split the sentences into words
+        tokenizer = TweetTokenizer(reduce_len=True)
+        words = tokenizer.tokenize(comment)
+
+        # remove stop_words
+        if stop_words:
+            eng_stopwords = set(stopwords.words("english"))
+            words = [w for w in words if w not in eng_stopwords]
+
+        # reduce words to lemma
+        if lemma:
+            lem = WordNetLemmatizer()
+            words = [lem.lemmatize(word, "v") for word in words]
+
+        clean_comment = " ".join(words)
+
+    return clean_comment
 
 
-def transform_dataset(dataset, func=clean_comment, name='Standard cleaning', kwargs={}):
+def transform_dataset(dataset, func=clean_comment, kwargs={}):
     """
     @brief: apply transform func on a dataset of comments
 
     @param:
         dataset: iterable of strings, dataset of comments to be transformed
         func: function, to be applied on a string to be transformed
-        name: string
+        kwargs: other params for 'func'
 
     @return:
         transform_dataset: iterable of strings, transformed comments
@@ -225,7 +231,7 @@ def pad_comment(comment, maxlen=200, join_bool=True, padval="<pad>"):
         if join=True, return a single string with the padded comment
         else, return a list of tokens of len maxlen
     """
-    tokenizer=TweetTokenizer()
+    tokenizer = TweetTokenizer()
     # Split the sentences into words
     words = tokenizer.tokenize(comment)
 
@@ -260,7 +266,7 @@ def encode(data_train, data_test, vectorizer=TfidfVectorizer()):
     vectorizer.fit(data_train + data_test)
 
     print('ENCODING: transforming data to numerical')
-    X_train =  vectorizer.transform(data_train)
+    X_train = vectorizer.transform(data_train)
     X_test = vectorizer.transform(data_test)
 
     return X_train, X_test
@@ -272,6 +278,7 @@ class TokenVectorizer:
     Each word is replaced by its integer vocanulary index, and the sequence is optionally padded with zeros.
     Wrapper for the Tokenizer object of Keras, with padding added
     """
+
     def __init__(self, max_len=-1, max_features=30000):
 
         self.max_len = max_len
@@ -284,13 +291,12 @@ class TokenVectorizer:
     def transform(self, text):
         list_tokens = self.tokenizer.texts_to_sequences(text)
         if self.max_len > 0:
-            return pad_sequences(list_tokens, maxlen=self.max_len)
+            return pad_sequences(list_tokens, maxlen=self.max_len, truncating='post')
         else:
             return list_tokens
 
 
 if __name__ == '__main__':
-
     data_train, y_train, data_test, id_test = load_data()
 
     #####################
@@ -312,8 +318,7 @@ if __name__ == '__main__':
     # Create a CBOW vectorizer for english words, without accent. No limit on vocab size
 
     hash_vectorizer = HashingVectorizer(analyzer='word', stop_words='english',
-                                         strip_accents='unicode')
-
+                                        strip_accents='unicode')
 
     # -------
     ### TFIDF
@@ -322,9 +327,9 @@ if __name__ == '__main__':
     # 30000 words max.and filtering words with frequency under 10.
     ## Remove accents, and using idf for filtering, with smoothing to avoid zero division
 
-    tfidf_vectorizer = TfidfVectorizer(stop_words='english', analyzer='word', ngram_range=(1,1),
+    tfidf_vectorizer = TfidfVectorizer(stop_words='english', analyzer='word', ngram_range=(1, 1),
                                        min_df=10, max_features=30000,
-                                       strip_accents='unicode', use_idf=1,smooth_idf=1,
+                                       strip_accents='unicode', use_idf=1, smooth_idf=1,
                                        sublinear_tf=1)
 
     # ------------
@@ -332,7 +337,6 @@ if __name__ == '__main__':
 
     ## Tokenize the corpus, with only the 30000 most commons tokens, and pad the sentences to 200
     tokens_vectorizer = TokenVectorizer(max_len=200, max_features=30000)
-
 
     X_train, X_test = encode(data_train, data_test, vectorizer=tokens_vectorizer)
 
