@@ -21,6 +21,28 @@ CLASSES = ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hat
 ########### EVALUATION ###################
 ##########################################
 
+
+class RocAucEvaluation(Callback):
+    """
+    Keras callback to be called after each epoch to compute ROC-AUC score on validation set.
+    """
+    def __init__(self, validation_data=(), interval=1):
+        """
+        Object constructor
+        :param validation_data: tuple (X_valid, y_valid
+        :param interval: callback called after each 'interval' epochs
+        """
+        super(Callback, self).__init__()
+        self.interval = interval
+        self.X_val, self.y_val = validation_data
+
+    def on_epoch_end(self, epoch, logs={}):
+        if epoch % self.interval == 0:
+            y_pred = self.model.predict(self.X_val, verbose=0)
+            score = roc_auc_score(self.y_val, y_pred)
+            print("epoch: {:d} - val_roc_auc: {:.4f}".format(epoch + 1, score))
+
+
 def evaluate(y_true, y_pred):
     """
     @brief: Compute column wise ROC AUC on prediction/truth samples
@@ -56,53 +78,9 @@ def submission(y, id_list, name, dir='data/', list_classes=CLASSES):
             writer.writerow([id] + list(y[i]))
 
 
-class RocAucEvaluation(Callback):
-    def __init__(self, validation_data=(), interval=1):
-        super(Callback, self).__init__()
-
-        self.interval = interval
-        self.X_val, self.y_val = validation_data
-
-    def on_epoch_end(self, epoch, logs={}):
-        if epoch % self.interval == 0:
-            y_pred = self.model.predict(self.X_val, verbose=0)
-            score = roc_auc_score(self.y_val, y_pred)
-            print("epoch: {:d} - val_roc_auc: {:.4f}".format(epoch + 1, score))
-
 ##########################################
 ########### DATA MANAGEMENT ##############
 ##########################################
-
-
-def load_nnet(name, dir="models/"):
-    """
-    Load a pre-trained keras model from disk.
-    :param name: path of the model, without the extension 'json' or 'h5'
-    :param dir: directory where is located the model
-    :return: the keras model to compile
-    """
-    # load json and create model
-    with open("{}{}.json".format(dir, name), "r") as json_file:
-        loaded_model_json = json_file.read()
-    model = model_from_json(loaded_model_json)
-    # load weights into new model
-    model.load_weights("{}{}.h5".format(dir, name))
-    return model
-
-
-def save_nnet(model, name, dir="models/"):
-    """
-    Save a keras model to disk.
-    :param model: the trained model
-    :param name: path of the model, without the extension 'json' or 'h5'
-    :param dir: directory where to store the model
-    """
-    # serialize model to JSON
-    model_json = model.to_json()
-    with open("{}.json".format(name), "w") as json_file:
-        json_file.write(model_json)
-    # serialize weights to HDF5
-    model.save_weights("{}.h5".format(name))
 
 
 def load_data(path='data/', list_classes=CLASSES):
@@ -133,49 +111,35 @@ def load_data(path='data/', list_classes=CLASSES):
     return data_train, y_train, data_test, id_test
 
 
-def encode(data_train, data_test, vectorizer=TfidfVectorizer()):
+def load_nnet(name, dir="models/"):
     """
-    @brief: encode textual data to numerical, and apply padding if necessary
-
-    @param:
-        data_train: list of comments, used for train
-        data_test: list of comments, used for testing
-        vectorizer: object, should have a method fit and transform (see sklearn doc)
-
-    @return:
-        X_train: scipy.sparse, (n_samples_train, max_features)
-        X_test: scipy.sparse, (n_samples_test, max_features)
-     """
-    print('ENCODING: Fitting vectorizer to data')
-    vectorizer.fit(data_train + data_test)
-
-    print('ENCODING: transforming data to numerical')
-    X_train =  vectorizer.transform(data_train)
-    X_test = vectorizer.transform(data_test)
-
-    return X_train, X_test
-
-
-class TokenVectorizer:
+    Load a pre-trained keras model from disk.
+    :param name: path of the model, without the extension 'json' or 'h5'
+    :param dir: directory where is located the model
+    :return: the keras model to compile
     """
-    Tokenize a dataset and create numpy padded representation.
-    Wrapper for the Tokenizer object of Keras, with padding added
+    # load json and create model
+    with open("{}{}.json".format(dir, name), "r") as json_file:
+        loaded_model_json = json_file.read()
+    model = model_from_json(loaded_model_json)
+    # load weights into new model
+    model.load_weights("{}{}.h5".format(dir, name))
+    return model
+
+
+def save_nnet(model, name, dir="models/"):
     """
-    def __init__(self, max_len=-1, max_features=30000):
-
-        self.max_len = max_len
-        self.max_features = max_features
-        self.tokenizer = Tokenizer(num_words=self.max_features)
-
-    def fit(self, text):
-        return self.tokenizer.fit_on_texts(text)
-
-    def transform(self, text):
-        list_tokens = self.tokenizer.texts_to_sequences(text)
-        if self.max_len > 0:
-            return pad_sequences(list_tokens, maxlen=self.max_len)
-        else:
-            return list_tokens
+    Save a keras model to disk.
+    :param model: the trained model
+    :param name: path of the model, without the extension 'json' or 'h5'
+    :param dir: directory where to store the model
+    """
+    # serialize model to JSON
+    model_json = model.to_json()
+    with open("{}{}.json".format(dir, name), "w") as json_file:
+        json_file.write(model_json)
+    # serialize weights to HDF5
+    model.save_weights("{}{}.h5".format(dir, name))
 
 
 #########################################
@@ -223,6 +187,32 @@ def clean_comment(comment):
     return(clean_comment)
 
 
+def transform_dataset(dataset, func=clean_comment, name='Standard cleaning', kwargs={}):
+    """
+    @brief: apply transform func on a dataset of comments
+
+    @param:
+        dataset: iterable of strings, dataset of comments to be transformed
+        func: function, to be applied on a string to be transformed
+        name: string
+
+    @return:
+        transform_dataset: iterable of strings, transformed comments
+    """
+    transform_dataset = dataset.copy()
+    print_every = int(np.ceil(len(dataset) / 1000))
+
+    for (i_txt, txt) in enumerate(dataset):
+
+        if i_txt % print_every == 0:
+            print('Transformation: {:.2f}%    '.format(100 * (i_txt + 1) / len(dataset)), end='\r')
+
+        transform_dataset[i_txt] = func(txt, **kwargs)
+
+    print('Transformation: 100%       ')
+    return transform_dataset
+
+
 def pad_comment(comment, maxlen=200, join_bool=True, padval="<pad>"):
     """
     @brief: limit lengths of comments to len_padding words
@@ -253,30 +243,50 @@ def pad_comment(comment, maxlen=200, join_bool=True, padval="<pad>"):
     return clean_comment
 
 
-def transform_dataset(dataset, func=clean_comment, name='Standard cleaning', kwargs={}):
+def encode(data_train, data_test, vectorizer=TfidfVectorizer()):
     """
-    @brief: apply transform func on a dataset of comments
+    @brief: encode textual data to numerical, and apply padding if necessary
 
     @param:
-        dataset: iterable of strings, dataset of comments to be transformed
-        func: function, to be applied on a string to be transformed
-        name: string
+        data_train: list of comments, used for train
+        data_test: list of comments, used for testing
+        vectorizer: object, should have a method fit and transform (see sklearn doc)
 
     @return:
-        transform_dataset: iterable of strings, transformed comments
+        X_train: scipy.sparse, (n_samples_train, max_features)
+        X_test: scipy.sparse, (n_samples_test, max_features)
+     """
+    print('ENCODING: Fitting vectorizer to data')
+    vectorizer.fit(data_train + data_test)
+
+    print('ENCODING: transforming data to numerical')
+    X_train =  vectorizer.transform(data_train)
+    X_test = vectorizer.transform(data_test)
+
+    return X_train, X_test
+
+
+class TokenVectorizer:
     """
-    transform_dataset = dataset.copy()
-    print_every = int(np.ceil(len(dataset) / 1000))
+    Tokenize a dataset and create numpy padded representation.
+    Each word is replaced by its integer vocanulary index, and the sequence is optionally padded with zeros.
+    Wrapper for the Tokenizer object of Keras, with padding added
+    """
+    def __init__(self, max_len=-1, max_features=30000):
 
-    for (i_txt, txt) in enumerate(dataset):
+        self.max_len = max_len
+        self.max_features = max_features
+        self.tokenizer = Tokenizer(num_words=self.max_features)
 
-        if i_txt % print_every == 0:
-            print('Transformation: {:.2f}%    '.format(100 * (i_txt + 1) / len(dataset)), end='\r')
+    def fit(self, text):
+        return self.tokenizer.fit_on_texts(text)
 
-        transform_dataset[i_txt] = func(txt, **kwargs)
-
-    print('Transformation: 100%       ')
-    return transform_dataset
+    def transform(self, text):
+        list_tokens = self.tokenizer.texts_to_sequences(text)
+        if self.max_len > 0:
+            return pad_sequences(list_tokens, maxlen=self.max_len)
+        else:
+            return list_tokens
 
 
 if __name__ == '__main__':
