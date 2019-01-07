@@ -272,24 +272,23 @@ def encode(data_train, data_test, vectorizer=TfidfVectorizer()):
     return X_train, X_test
 
 
-class TokenVectorizer:
+class TokenVectorizer(Tokenizer):
     """
     Tokenize a dataset and create numpy padded representation.
     Each word is replaced by its integer vocanulary index, and the sequence is optionally padded with zeros.
     Wrapper for the Tokenizer object of Keras, with padding added
     """
 
-    def __init__(self, max_len=-1, max_features=30000):
-
+    def __init__(self, max_len=-1, max_features=30000, **kwargs):
+        super().__init__(num_words=max_features, **kwargs)
         self.max_len = max_len
         self.max_features = max_features
-        self.tokenizer = Tokenizer(num_words=self.max_features)
 
     def fit(self, text):
-        return self.tokenizer.fit_on_texts(text)
+        return self.fit_on_texts(text)
 
     def transform(self, text):
-        list_tokens = self.tokenizer.texts_to_sequences(text)
+        list_tokens = self.texts_to_sequences(text)
         if self.max_len > 0:
             return pad_sequences(list_tokens, maxlen=self.max_len, truncating='post')
         else:
