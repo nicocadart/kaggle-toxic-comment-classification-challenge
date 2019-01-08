@@ -164,7 +164,7 @@ def clean_comment(comment, lower=True, lemma=True, stop_words=True):
 
     # remove \n
     comment = re.sub("\\n", " ", comment)
-    # remove leaky elements like ip,user
+    # remove leaky elements like ip, user
     comment = re.sub("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", "", comment)
     # removing usernames
     comment = re.sub("\[\[.*\]", "", comment)
@@ -231,14 +231,13 @@ def pad_comment(comment, maxlen=200, join_bool=True, padval="<pad>"):
         if join=True, return a single string with the padded comment
         else, return a list of tokens of len maxlen
     """
-    tokenizer = TweetTokenizer()
+    tokenizer = TweetTokenizer(reduce_len=True)
     # Split the sentences into words
     words = tokenizer.tokenize(comment)
 
     if len(words) < maxlen:
         pad_words = words + [padval] * (maxlen - len(words))
-
-    elif len(words) > maxlen:
+    else:
         pad_words = words[:maxlen]
 
     if join_bool:
