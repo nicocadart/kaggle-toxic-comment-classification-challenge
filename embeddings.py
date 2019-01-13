@@ -9,8 +9,11 @@ def load_GloVe_embeddings(emb_dim,vocab_size,pathToEmbFile,tokenizer):
 
     TODO: adapter à la sélection de différents fichiers sources/dim associées
     """
+    VOCAB_SIZE = vocab_size
+    EMBEDDING_DIM = emb_dim
+    
     embeddings_index = dict()
-    with open(path) as file:
+    with open(pathToEmbFile) as file:
         for line in file:
             values = line.split()
             word = values[0]
@@ -80,6 +83,9 @@ def init_word2vec_embeddings(embeddings_index_google,emb_dim,vocab_size):
 
     # get mean and std values of pre-trained embeddings
     all_embs_google = np.stack(embeddings_index_google.values())
+    
+    del all_embs_google
+    
     emb_mean_google, emb_std_google = np.mean(all_embs_google, axis=0), \
                                         np.std(all_embs_google, axis=0)
 

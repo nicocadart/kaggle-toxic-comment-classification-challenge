@@ -1,12 +1,13 @@
 from keras.layers import Dense, Input, LSTM, Embedding, Dropout, Activation, GlobalMaxPooling1D, Bidirectional, Conv1D, concatenate
 from keras.models import Model
 
-def YoonKim(sentence_length,emb_dim,emb_matrix,n_filters,trainableBool):
+def YoonKim(sentence_length,vocab_size,emb_dim,emb_matrix,n_filters,trainableBool):
     """
     TODO: adapter à la paramétrisation des filtres (taille 7 à rendre possible pour rapport final)
     """
 
     SENTENCE_LENGTH = sentence_length
+    VOCAB_SIZE = vocab_size
     EMBEDDING_DIM = emb_dim
     embedding_matrix = emb_matrix
     N_FILTERS = n_filters
