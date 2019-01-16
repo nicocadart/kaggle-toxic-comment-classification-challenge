@@ -46,11 +46,12 @@ def YoonKim(sentence_length,vocab_size,emb_dim,emb_matrix,n_filters,trainableBoo
     # modèle prêt au .fit() !
     return(model)
 
-def Bidirectional_LSTM(sentence_length,emb_dim,emb_matrix,trainableBool):
+def Bidirectional_LSTM(sentence_length,vocab_size,emb_dim,emb_matrix,trainableBool):
 
     SENTENCE_LENGTH = sentence_length
     EMBEDDING_DIM = emb_dim
     embedding_matrix = emb_matrix
+    VOCAB_SIZE = vocab_size
 
     # input
     inp = Input(shape=(SENTENCE_LENGTH, ))

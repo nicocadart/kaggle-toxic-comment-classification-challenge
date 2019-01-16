@@ -84,7 +84,7 @@ def init_word2vec_embeddings(embeddings_index_google,emb_dim,vocab_size):
     # get mean and std values of pre-trained embeddings
     all_embs_google = np.stack(embeddings_index_google.values())
     
-    del all_embs_google
+    del embeddings_index_google # will have to recreate it when calling load_word2vec_embeddings()
     
     emb_mean_google, emb_std_google = np.mean(all_embs_google, axis=0), \
                                         np.std(all_embs_google, axis=0)
@@ -97,9 +97,9 @@ def init_word2vec_embeddings(embeddings_index_google,emb_dim,vocab_size):
 
     # on retourne la matrice qui DOIT ENCORE ÊTRE COMPLÉTÉE PAR LE TOKENIZER
     # (opération impossible avant car cela implique de surcharger la RAM avec le tokenizer)
-    return(embedding_matrix_init)
+    return(embedding_matrix_google)
 
-def load_word2vec_embeddings(embedding_matrix_google,embeddings_index_google,tokenizer):
+def load_word2vec_embeddings(embedding_matrix_google,embeddings_index_google,tokenizer,VOCAB_SIZE):
     """
     adapter à la sélection de différents fichiers sources/dim associées
 
