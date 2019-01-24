@@ -2,29 +2,28 @@ from keras.layers import Dense, Input, LSTM, Embedding, Dropout, GlobalMaxPoolin
 from keras.models import Model
 
 
-def yoon_kim(sentence_length, vocab_size, embedding_dim, embedding_matrix, n_filters, trainable):
-    """
-    TODO: adapter a la parametrisation des filtres (taille 7 a rendre possible pour rapport final)
-    """
+# TODO : add spatial dropout and/or batch norm in yoon_kim()
+# TODO : stack LSTM layers in bidirectional_lstm()
+
+
+def yoon_kim(sentence_length=200, vocab_size=30000,
+             n_filters=100, filters_sizes=(3, 5, 7),
+             embedding_dim=150, embedding_matrix=None, train_embeddings=True):
     # input
     inp = Input(shape=(sentence_length,))
     # embedding
-    emb = Embedding(vocab_size, embedding_dim, input_length=sentence_length,
-                    weights=[embedding_matrix], trainable=trainable)(inp)
+    emb = Embedding(vocab_size, embedding_dim, input_length=sentence_length, trainable=train_embeddings,
+                    weights=[embedding_matrix] if embedding_matrix is not None else None)(inp)
 
-    # Specify each convolution layer and their kernel siz i.e. n-grams
-    conv_3 = Conv1D(filters=n_filters, kernel_size=3, activation='relu')(emb)
-    pool_3 = GlobalMaxPooling1D()(conv_3)
-
-    conv_4 = Conv1D(filters=n_filters, kernel_size=4, activation='relu')(emb)
-    pool_4 = GlobalMaxPooling1D()(conv_4)
-
-    conv_5 = Conv1D(filters=n_filters, kernel_size=5, activation='relu')(emb)
-    pool_5 = GlobalMaxPooling1D()(conv_5)
+    # Specify each convolution layer and their kernel size i.e. n-grams
+    conv_layers, pool_layers = [None] * len(filters_sizes), [None] * len(filters_sizes)
+    for i_layer, filter_size in enumerate(filters_sizes):
+        conv_layers[i_layer] = Conv1D(filters=n_filters, kernel_size=filter_size, activation='relu')(emb)
+        pool_layers[i_layer] = GlobalMaxPooling1D()(conv_layers[i_layer])
 
     # Gather all convolution layers
-    x = concatenate([pool_3, pool_4, pool_5], axis=1)
-    x = Dropout(0.1)(x)
+    x = concatenate([pool for pool in pool_layers], axis=1)
+    # x = Dropout(0.1)(x)
     x = Dense(50, activation='relu')(x)
     x = Dropout(0.1)(x)
     outp = Dense(6, activation='sigmoid')(x)
@@ -41,18 +40,19 @@ def yoon_kim(sentence_length, vocab_size, embedding_dim, embedding_matrix, n_fil
     return (model)
 
 
-def bidirectional_lstm(sentence_length, vocab_size, embedding_dim, embedding_matrix, trainable):
+def bidirectional_lstm(sentence_length=200, vocab_size=30000,
+                       embedding_dim=150, embedding_matrix=None, train_embeddings=True):
     # input
     inp = Input(shape=(sentence_length,))
     # embedding
-    x = Embedding(vocab_size, embedding_dim, input_length=sentence_length,
-                  weights=[embedding_matrix], trainable=trainable)(inp)
+    emb = Embedding(vocab_size, embedding_dim, input_length=sentence_length, trainable=train_embeddings,
+                    weights=[embedding_matrix] if embedding_matrix is not None else None)(inp)
     # LSTM
-    x = Bidirectional(LSTM(60, return_sequences=True, name='lstm_layer'))(x)
+    x = Bidirectional(LSTM(60, return_sequences=True, name='lstm_layer'))(emb)
     # max pooling 1D
     x = GlobalMaxPooling1D()(x)
     # dropout 1
-    x = Dropout(0.1)(x)
+    # x = Dropout(0.1)(x)
     # dense 1
     x = Dense(50, activation="relu")(x)
     # dropout 2
