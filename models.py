@@ -2,7 +2,7 @@ from keras.layers import Dense, Input, LSTM, Embedding, Dropout, GlobalMaxPoolin
 from keras.models import Model
 
 
-def YoonKim(sentence_length, vocab_size, embedding_dim, embedding_matrix, n_filters, trainable):
+def yoon_kim(sentence_length, vocab_size, embedding_dim, embedding_matrix, n_filters, trainable):
     """
     TODO: adapter a la parametrisation des filtres (taille 7 a rendre possible pour rapport final)
     """
@@ -41,7 +41,7 @@ def YoonKim(sentence_length, vocab_size, embedding_dim, embedding_matrix, n_filt
     return (model)
 
 
-def Bidirectional_LSTM(sentence_length, vocab_size, embedding_dim, embedding_matrix, trainable):
+def bidirectional_lstm(sentence_length, vocab_size, embedding_dim, embedding_matrix, trainable):
     # input
     inp = Input(shape=(sentence_length,))
     # embedding
