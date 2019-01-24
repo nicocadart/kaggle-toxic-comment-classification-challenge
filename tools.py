@@ -176,7 +176,7 @@ def clean_comment(comment, lower=True, lemma=True, stop_words=True):
 
         # Split the sentences into words
         tokenizer = TweetTokenizer(reduce_len=True)
-        words = tokenizer.tokenize(comment)
+        words = tokenizer.tokenize(clean_comment)
 
         # remove stop_words
         if stop_words:

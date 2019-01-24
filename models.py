@@ -1,31 +1,25 @@
-from keras.layers import Dense, Input, LSTM, Embedding, Dropout, Activation, GlobalMaxPooling1D, Bidirectional, Conv1D, concatenate
+from keras.layers import Dense, Input, LSTM, Embedding, Dropout, GlobalMaxPooling1D, Bidirectional, Conv1D, concatenate
 from keras.models import Model
 
-def YoonKim(sentence_length,vocab_size,emb_dim,emb_matrix,n_filters,trainableBool):
-    """
-    TODO: adapter à la paramétrisation des filtres (taille 7 à rendre possible pour rapport final)
-    """
 
-    SENTENCE_LENGTH = sentence_length
-    VOCAB_SIZE = vocab_size
-    EMBEDDING_DIM = emb_dim
-    embedding_matrix = emb_matrix
-    N_FILTERS = n_filters
-
+def YoonKim(sentence_length, vocab_size, embedding_dim, embedding_matrix, n_filters, trainable):
+    """
+    TODO: adapter a la parametrisation des filtres (taille 7 a rendre possible pour rapport final)
+    """
     # input
-    inp = Input(shape=(SENTENCE_LENGTH, ))
+    inp = Input(shape=(sentence_length,))
     # embedding
-    emb = Embedding(VOCAB_SIZE, EMBEDDING_DIM, input_length=SENTENCE_LENGTH,
-                    weights=[embedding_matrix], trainable=trainableBool)(inp)
+    emb = Embedding(vocab_size, embedding_dim, input_length=sentence_length,
+                    weights=[embedding_matrix], trainable=trainable)(inp)
 
     # Specify each convolution layer and their kernel siz i.e. n-grams
-    conv_3 = Conv1D(filters=N_FILTERS, kernel_size=3, activation='relu')(emb)
+    conv_3 = Conv1D(filters=n_filters, kernel_size=3, activation='relu')(emb)
     pool_3 = GlobalMaxPooling1D()(conv_3)
 
-    conv_4 = Conv1D(filters=N_FILTERS, kernel_size=4, activation='relu')(emb)
+    conv_4 = Conv1D(filters=n_filters, kernel_size=4, activation='relu')(emb)
     pool_4 = GlobalMaxPooling1D()(conv_4)
 
-    conv_5 = Conv1D(filters=N_FILTERS, kernel_size=5, activation='relu')(emb)
+    conv_5 = Conv1D(filters=n_filters, kernel_size=5, activation='relu')(emb)
     pool_5 = GlobalMaxPooling1D()(conv_5)
 
     # Gather all convolution layers
@@ -43,23 +37,18 @@ def YoonKim(sentence_length,vocab_size,emb_dim,emb_matrix,n_filters,trainableBoo
                   optimizer='adam',
                   metrics=['accuracy'])
 
-    # modèle prêt au .fit() !
-    return(model)
+    # ready for .fit() !
+    return (model)
 
-def Bidirectional_LSTM(sentence_length,vocab_size,emb_dim,emb_matrix,trainableBool):
 
-    SENTENCE_LENGTH = sentence_length
-    EMBEDDING_DIM = emb_dim
-    embedding_matrix = emb_matrix
-    VOCAB_SIZE = vocab_size
-
+def Bidirectional_LSTM(sentence_length, vocab_size, embedding_dim, embedding_matrix, trainable):
     # input
-    inp = Input(shape=(SENTENCE_LENGTH, ))
+    inp = Input(shape=(sentence_length,))
     # embedding
-    x = Embedding(VOCAB_SIZE, EMBEDDING_DIM, input_length=SENTENCE_LENGTH,
-                    weights=[embedding_matrix], trainable=trainableBool)(inp)
+    x = Embedding(vocab_size, embedding_dim, input_length=sentence_length,
+                  weights=[embedding_matrix], trainable=trainable)(inp)
     # LSTM
-    x = Bidirectional(LSTM(60, return_sequences=True,name='lstm_layer'))(x)
+    x = Bidirectional(LSTM(60, return_sequences=True, name='lstm_layer'))(x)
     # max pooling 1D
     x = GlobalMaxPooling1D()(x)
     # dropout 1
@@ -79,5 +68,5 @@ def Bidirectional_LSTM(sentence_length,vocab_size,emb_dim,emb_matrix,trainableBo
                   optimizer='adam',
                   metrics=['accuracy'])
 
-    # modèle prêt au .fit() !
-    return(model)
+    # ready to .fit() !
+    return (model)
