@@ -147,105 +147,136 @@ def save_nnet(model, name, dir="models/"):
 #########################################
 
 
-def clean_comment(comment, lower=True, lemma=True, stop_words=True):
+class CommentCleaner:
     """
-    @brief: This function receives comments and returns clean word-list
-    (from https://www.kaggle.com/jagangupta/stop-the-s-toxic-comments-eda)
-
-    @param:
-        comment: string, sentence to be cleaned
-
-    @return:
-        clean_comment: string, cleaned sentence
+    This object is used to clean commments.
     """
-    # Convert to lower case , so that Hi and hi are the same
-    if lower:
-        comment = comment.lower()
+    def __init__(self, lower=True, lemma=True, stop_words=True):
+        # save config
+        self.lower = lower
+        self.lemmatize = lemma
+        self.remove_stop_words = stop_words
 
-    # remove \n
-    comment = re.sub("\\n", " ", comment)
-    # remove leaky elements like ip, user
-    comment = re.sub("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", "", comment)
-    # removing usernames
-    comment = re.sub("\[\[.*\]", "", comment)
-    # remove any non alphanum, digit character
-    clean_comment = re.sub("\W+", " ", comment)
+        # init regexp objects
+        self.re_remove_newline = re.compile("\\n")
+        self.re_remove_leaks = re.compile("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
+        self.re_remove_usernames = re.compile("\[\[.*\]")
+        self.re_remove_nonalphadigit = re.compile("\W+")  # TODO : check if it isn't better to keep punctation
 
-    # If processing has to be on words
-    if lemma or stop_words:
+        # init other processing objects
+        self.tokenizer = TweetTokenizer(reduce_len=True)
+        self.lemmatizer = WordNetLemmatizer()
+        self.stop_words = set(stopwords.words("english"))
 
+    def transform(self, comment):
+        """
+        @brief: This function receives comments and returns clean word-list
+        (from https://www.kaggle.com/jagangupta/stop-the-s-toxic-comments-eda)
+
+        @param:
+            comments: list of strings, sentences to be cleaned
+
+        @return:
+            clean_comments: list of strings, cleaned sentences
+        """
+        # remove \n
+        comment = self.re_remove_newline.sub(" ", comment)
+        # remove leaky elements like ip, user
+        comment = self.re_remove_leaks.sub("", comment)
+        # removing usernames
+        comment = self.re_remove_usernames.sub("", comment)
+        # remove any non alphanum, digit character
+        clean_comment = self.re_remove_nonalphadigit.sub(" ", comment)
+
+        # Convert to lower case , so that Hi and hi are the same
+        if self.lower:
+            clean_comment = clean_comment.lower()
+
+        # If processing has to be on words
+        if self.lemmatize or self.remove_stop_words:
+
+            # Split the sentences into words
+            words = self.tokenizer.tokenize(clean_comment)
+
+            # remove stop_words
+            if self.remove_stop_words:
+                words = [w for w in words if w not in self.stop_words]
+
+            # reduce words to lemma
+            if self.lemmatize:
+                words = [self.lemmatizer.lemmatize(word, "v") for word in words]
+
+            clean_comment = " ".join(words)
+
+        return clean_comment
+
+
+class CommentPadder:
+    """
+    Object used to pad comments.
+    """
+    def __init__(self, maxlen=200, join_bool=True, padval="<pad>"):
+        """
+
+        :param maxlen:  int, length of all output sentences
+        :param join_bool: if join=True, return a single string with the padded comment
+        :param padval: the string used to pad shorter sequences
+        """
+        # save config
+        self.maxlen = maxlen
+        self.padval = padval
+        self.join_bool = join_bool
+
+        # init other processing objects
+        self.tokenizer = TweetTokenizer(reduce_len=True)
+
+    def transform(self, comment):
+        """
+        Limit lengths of comments to len_padding words
+        :param comment: string, sentence to be truncated or padded with padval to length maxlen
+        :return: if join=True, return a single string with the padded comment,  else, a list of tokens of len maxlen
+        """
         # Split the sentences into words
-        tokenizer = TweetTokenizer(reduce_len=True)
-        words = tokenizer.tokenize(clean_comment)
+        words = self.tokenizer.tokenize(comment)
 
-        # remove stop_words
-        if stop_words:
-            eng_stopwords = set(stopwords.words("english"))
-            words = [w for w in words if w not in eng_stopwords]
+        if len(words) < self.maxlen:
+            pad_words = words + [self.padval] * (self.maxlen - len(words))
+        else:
+            pad_words = words[:self.maxlen]
 
-        # reduce words to lemma
-        if lemma:
-            lem = WordNetLemmatizer()
-            words = [lem.lemmatize(word, "v") for word in words]
+        if self.join_bool:
+            clean_comment = " ".join(pad_words)
+        else:
+            clean_comment = pad_words
 
-        clean_comment = " ".join(words)
-
-    return clean_comment
+        return clean_comment
 
 
-def transform_dataset(dataset, func=clean_comment, kwargs={}):
+def transform_dataset(dataset, transformer=CommentCleaner, kwargs={}):
     """
     @brief: apply transform func on a dataset of comments
 
     @param:
         dataset: iterable of strings, dataset of comments to be transformed
-        func: function, to be applied on a string to be transformed
-        kwargs: other params for 'func'
+        transformer: object with a transform() method to be applied on a string to be transformed
+        kwargs: init params to transformer
 
     @return:
         transform_dataset: iterable of strings, transformed comments
     """
     transform_dataset = dataset.copy()
     print_every = int(np.ceil(len(dataset) / 1000))
+    transformer = transformer(**kwargs)
 
     for (i_txt, txt) in enumerate(dataset):
 
         if i_txt % print_every == 0:
             print('Transformation: {:.2f}%    '.format(100 * (i_txt + 1) / len(dataset)), end='\r')
 
-        transform_dataset[i_txt] = func(txt, **kwargs)
+        transform_dataset[i_txt] = transformer.transform(txt)
 
     print('Transformation: 100%       ')
     return transform_dataset
-
-
-def pad_comment(comment, maxlen=200, join_bool=True, padval="<pad>"):
-    """
-    @brief: limit lengths of comments to len_padding words
-
-    @param:
-        comment: string, sentence to be padded with padval
-        maxlen: int, length of all sentences
-
-    @return:
-        if join=True, return a single string with the padded comment
-        else, return a list of tokens of len maxlen
-    """
-    tokenizer = TweetTokenizer(reduce_len=True)
-    # Split the sentences into words
-    words = tokenizer.tokenize(comment)
-
-    if len(words) < maxlen:
-        pad_words = words + [padval] * (maxlen - len(words))
-    else:
-        pad_words = words[:maxlen]
-
-    if join_bool:
-        clean_comment = " ".join(pad_words)
-    else:
-        clean_comment = pad_words
-
-    return clean_comment
 
 
 def encode(data_train, data_test, vectorizer=TfidfVectorizer()):

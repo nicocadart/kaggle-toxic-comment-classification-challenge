@@ -2,60 +2,85 @@ import numpy as np
 from gensim.models import KeyedVectors  # to load word2vec pretrained embeddings
 
 
-def load_glove_embeddings(emb_dim, vocab_size, path_to_emb_file, tokenizer):
+def load_pretrained_embeddings(word_index, vocab_size, emb_dim=200, source='glove_twitter'):
     """
-    1) create complete embeddings matrix to compute statistical distribution
-    2) with stat. distribution initialize properly emb. matrix to avoid emb. sharing
-    3) update init. emb. matrix with emb. associated with our corpus' vocabulary
+    Build embeddings layer weights from pre-trained word vectors.
+    :param word_index: dictionary mapping our words to their numerical index (sorted from most to least frequent)
+    :param vocab_size: number of most frequent words we want to consider
+    :param emb_dim: dimension of the embeddings vectors
+    :param source: the pre-trained word vectors dataset, in {'glove_twitter', 'glove_wikipedia', 'word2vec_googlenews'}
+    :return: the embeddings weights to give to keras layer
+    """
+    # parse file name
+    if source == 'glove_twitter':
+        if emb_dim not in {25, 50, 100, 200}:
+            raise ValueError("'glove_twitter' embeddings are only available for dimensions 25, 50, 100 or 200")
+        embeddings_file = 'embeddings/glove.twitter.27B.{}d.txt'.format(emb_dim)
 
-    TODO: adapter à la selection de differents fichiers sources/dim associees
-    """
-    embeddings_index = dict()
-    with open(path_to_emb_file) as file:
-        for line in file:
+    elif source == 'glove_wikipedia':
+        if emb_dim not in {50, 100, 200, 300}:
+            raise ValueError("'glove_wikipedia' embeddings are only available for dimensions 50, 100, 200 or 300")
+        embeddings_file = 'embeddings/glove.6B.{}d.txt'.format(emb_dim)
+
+    elif source == 'word2vec_googlenews':
+        if emb_dim != 300:
+            raise ValueError("'word2vec_googlenews' embeddings are only available for dimension 300")
+        embeddings_file = 'embeddings/GoogleNews-vectors-negative300.txt'
+
+    else:
+        raise ValueError("Unknown pre-trained embeddings source. "
+                         "Must be in {'glove_twitter', 'glove_wikipedia', 'word2vec_googlenews'}")
+
+    # parse embeddings file and update embedding matrix
+    word_vectors = dict()
+    with open(embeddings_file) as file:
+        for i_line, line in enumerate(file):
+            # display loading every 1000 words
+            if i_line % 1000 == 0:
+                print('Loading word vector {}...'.format(i_line + 1), end="\r")
+
+            # read new word and vector
             values = line.split()
             word = values[0]
-            coefs = np.asarray(values[1:], dtype='float32')
-            # print(coefs.shape)  # le code est bien compatible avec le format renvoye par word2vec
-            embeddings_index[word] = coefs
-    print('Loaded %s word vectors.' % len(embeddings_index))
+            coefs = np.asarray(values[1:], dtype=np.float32)
 
-    # Create a weight matrix for words in training docs
+            # save word only if it is part of the most frequent words of our vocabulary
+            index = word_index.get(word)
+            if (index is not None) and (index < vocab_size) and (coefs.size == emb_dim):
+                word_vectors[word] = coefs
 
+    print('Number of pre-trained word vectors in database       : {}'.format(i_line + 1))
+    print("Number of our words with a pre-trained embedding     : {}".format(len(word_vectors)))
+    print("Percentage of our words with a pre-trained embedding : {:.3f}%".format(100 * len(word_vectors) / vocab_size))
+
+    # Init a weight matrix for words in training docs matching pre-trained embeddings statistics
     # get mean and std values of pre-trained embeddings
-    all_embs = np.stack(embeddings_index.values())
+    all_embs = np.stack(word_vectors.values())
     emb_mean, emb_std = np.mean(all_embs, axis=0), np.std(all_embs, axis=0)
+    del all_embs
     # init matrix to embeddings statistical distribution
     embedding_matrix = np.random.normal(emb_mean, emb_std, (vocab_size, emb_dim))
 
-    # loop on words in our documents
-
-    word_with_glove_emb = 0
-
-    for word, index in tokenizer.word_index.items():
-        # if word isn't enough used in documents, ignore it
+    # Loop on words in our documents to update known word vectors
+    for word, index in word_index.items():
+        # if word isn't enough used in our documents, ignore it
         if index >= vocab_size:
             continue
         # otherwise, fill embedding matrix with pre-trained vector corresponding to this word
-        embedding_vector = embeddings_index.get(word)
+        embedding_vector = word_vectors.get(word)
         if embedding_vector is not None:
-            word_with_glove_emb += 1
             embedding_matrix[index, :] = embedding_vector
 
-    print("Number of words with a GloVe embedding:", word_with_glove_emb)
-    print("Percentage of words with a GloVe embedding:", word_with_glove_emb / vocab_size)
-
-    # on retourne la matrice qui sera un parametre de la fonction Embedding de Keras
-    return (embedding_matrix)
+    return embedding_matrix
 
 
 def load_word2vec_embeddings_index(path_to_emb_file):
     """
     load embeddings file and build embeddings index
 
-    TODO: adapter à la selection de differents fichiers sources/dim associees
+    TODO: adapter a la selection de differents fichiers sources/dim associees
     """
-    google_model = KeyedVectors.load_word2vec_format(path_to_emb_file, binary=True)
+    google_model = KeyedVectors.load_word2vec_format(path_to_emb_file, binary=True, limit=100000)
     google_model_words = list(google_model.wv.vocab)
     print("Number of words in pre trained word2vec:", len(google_model_words))
 
