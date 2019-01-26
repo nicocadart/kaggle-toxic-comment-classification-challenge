@@ -1,5 +1,4 @@
 import numpy as np
-from gensim.models import KeyedVectors  # to load word2vec pretrained embeddings
 
 
 def load_pretrained_embeddings(word_index, vocab_size, emb_dim=200, source='glove_twitter'):
@@ -25,31 +24,19 @@ def load_pretrained_embeddings(word_index, vocab_size, emb_dim=200, source='glov
     elif source == 'word2vec_googlenews':
         if emb_dim != 300:
             raise ValueError("'word2vec_googlenews' embeddings are only available for dimension 300")
-        embeddings_file = 'embeddings/GoogleNews-vectors-negative300.txt'
+        embeddings_file = 'embeddings/GoogleNews-vectors-negative300.bin'
 
     else:
         raise ValueError("Unknown pre-trained embeddings source. "
                          "Must be in {'glove_twitter', 'glove_wikipedia', 'word2vec_googlenews'}")
 
-    # parse embeddings file and update embedding matrix
-    word_vectors = dict()
-    with open(embeddings_file) as file:
-        for i_line, line in enumerate(file):
-            # display loading every 1000 words
-            if i_line % 1000 == 0:
-                print('Loading word vector {}...'.format(i_line + 1), end="\r")
+    # parse embeddings file
+    if source.split('_')[0] == "glove":
+        word_vectors, n_emb = load_glove_embeddings(embeddings_file, word_index, vocab_size, emb_dim)
+    elif source.split('_')[0] == "word2vec":
+        word_vectors, n_emb = load_word2vec_embeddings(embeddings_file, word_index, vocab_size, emb_dim)
 
-            # read new word and vector
-            values = line.split()
-            word = values[0]
-            coefs = np.asarray(values[1:], dtype=np.float32)
-
-            # save word only if it is part of the most frequent words of our vocabulary
-            index = word_index.get(word)
-            if (index is not None) and (index < vocab_size) and (coefs.size == emb_dim):
-                word_vectors[word] = coefs
-
-    print('Number of pre-trained word vectors in database       : {}'.format(i_line + 1))
+    print('Number of pre-trained word vectors in database       : {}'.format(n_emb))
     print("Number of our words with a pre-trained embedding     : {}".format(len(word_vectors)))
     print("Percentage of our words with a pre-trained embedding : {:.3f}%".format(100 * len(word_vectors) / vocab_size))
 
@@ -74,73 +61,63 @@ def load_pretrained_embeddings(word_index, vocab_size, emb_dim=200, source='glov
     return embedding_matrix
 
 
-def load_word2vec_embeddings_index(path_to_emb_file):
+def load_glove_embeddings(embeddings_file, word_index, vocab_size, emb_dim):
     """
-    load embeddings file and build embeddings index
-
-    TODO: adapter a la selection de differents fichiers sources/dim associees
+    Get GloVe pre-trained word vectors matching to our words of interest.
     """
-    google_model = KeyedVectors.load_word2vec_format(path_to_emb_file, binary=True, limit=100000)
-    google_model_words = list(google_model.wv.vocab)
-    print("Number of words in pre trained word2vec:", len(google_model_words))
+    word_vectors = {}
+    with open(embeddings_file, 'r') as file:
+        for i_line, line in enumerate(file):
+            # display loading every 1000 words
+            if i_line % 1000 == 0:
+                print('Loading word vector {}...'.format(i_line), end="\r")
 
-    embeddings_index_google = dict()
-    for googleRetainedWord in google_model_words:
-        embeddings_index_google[googleRetainedWord] = google_model[googleRetainedWord]
-    print('Loaded %s word vectors.' % len(embeddings_index_google))
+            # read word and vector
+            values = line.split()
+            word = values[0]
+            coefs = np.asarray(values[1:], dtype=np.float32)
 
-    del google_model  # FREE RAM ! END MEMORY GULAG !
+            # save word only if it is part of the most frequent words of our vocabulary
+            index = word_index.get(word)
+            if (index is not None) and (index < vocab_size) and (coefs.size == emb_dim):
+                word_vectors[word] = coefs
+        n_emb = i_line + 1
 
-    return (embeddings_index_google)
+    return word_vectors, n_emb
 
 
-def init_word2vec_embeddings(embeddings_index_google, emb_dim, vocab_size):
+def load_word2vec_embeddings(embeddings_file, word_index, vocab_size, emb_dim):
     """
-    si probleme de RAM, charger les donnees train/test et les libraires Keras
-    apres avoir lance cette fonction ! (bref, liberez delivrez la RAM)
-
-    TODO: adapter à la selection de differents fichiers sources/dim associees
+    Get Word2Vec pre-trained word vectors matching to our words of interest.
     """
-    # get mean and std values of pre-trained embeddings
-    all_embs_google = np.stack(embeddings_index_google.values())
+    word_vectors = {}
+    with open(embeddings_file, "rb") as file:
+        # read and use header
+        header = file.readline()
+        n_emb, emb_dim = map(int, header.split())
+        vector_binary_len = np.dtype('float32').itemsize * emb_dim
 
-    del embeddings_index_google  # will have to recreate it when calling load_word2vec_embeddings()
+        # parse file
+        for i_line in range(n_emb):
+            # display loading every 1000 words
+            if i_line % 1000 == 0:
+                print('Loading word vector {}...'.format(i_line), end="\r")
 
-    emb_mean_google, emb_std_google = np.mean(all_embs_google, axis=0), np.std(all_embs_google, axis=0)
+            # read word
+            word = ''
+            while True:
+                ch = file.read(1)
+                if ch == b' ':
+                    break
+                if ch != '\n':
+                    word += ch.decode('cp437')
 
-    del all_embs_google  # FREE RAM ! END MEMORY GULAG !
+            # read vector
+            coefs = np.frombuffer(file.read(vector_binary_len), dtype='float32')
 
-    # init matrix to embeddings distribution
-    embedding_matrix_google = np.random.normal(emb_mean_google, emb_std_google, (vocab_size, emb_dim))
+            # save word only if it is part of the most frequent words of our vocabulary
+            index = word_index.get(word)
+            if (index is not None) and (index < vocab_size) and (coefs.size == emb_dim):
+                word_vectors[word] = coefs
 
-    # on retourne la matrice qui DOIT ENCORE ETRE COMPLETEE PAR LE TOKENIZER
-    # (operation impossible avant car cela implique de surcharger la RAM avec le tokenizer)
-    return (embedding_matrix_google)
-
-
-def load_word2vec_embeddings(embedding_matrix_google, embeddings_index_google, tokenizer, vocab_size):
-    """
-    adapter a la selection de differents fichiers sources/dim associees
-
-    embedding_matrix_google is result from init_word2vec_embeddings
-    """
-    word_with_goggle_emb = 0
-
-    for word, index in tokenizer.word_index.items():
-        if index > vocab_size - 1:  # determine a quel point on s'interesse aux mots moins importants d'apres Glove
-            continue
-        else:
-            try:
-                embedding_vector_google = embeddings_index_google[
-                    word]  # on va chercher le mot dans word2vec embeddings
-            except KeyError:
-                embedding_vector_google = None
-            if embedding_vector_google is not None:
-                word_with_goggle_emb += 1
-                embedding_matrix_google[index, :] = embedding_vector_google
-
-    print("Number of words with a word2vec embedding:", word_with_goggle_emb)
-    print("Percentage of words with a word2vec embedding:", word_with_goggle_emb / vocab_size)
-
-    # on retourne la matrice qui sera un parametre de la fonction Embedding de Keras
-    return (embedding_matrix_google)
+    return word_vectors, n_emb

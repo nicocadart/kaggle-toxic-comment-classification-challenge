@@ -7,49 +7,49 @@ Autors : M. Bauw, N. Cadart, B. Sarthou
 
 Date : February 2019
 
-## Premières idées en vrac
 
-- TF IDF va être utile car des termes grossiers reviennent tout le temps et ça vire les mots inutiles
-- 3 niveaux de tâches: preprocess, quantification/description, classification
-- Première classification binaire clean/pas clean ie est-ce qu'une classe au moins est à 1, puis multiclasse pour savoir le(s)quel(s) sont à 1
-- **Première difficulté:** classification multiclasse non exclusive
-
-https://nlp.stanford.edu/IR-book/html/htmledition/classification-with-more-than-two-classes-1.html
-
-On pourrait donc partir sur 6 classifieurs binaires indépendants - AU FINAL NON (?)
-
-- **Deuxième difficulté:** déséquilibre des classes, utiliser une loss adaptée augmentant comme il faut le poids de la classe sous représentée
-- **Troisième difficulté:** pauvreté
-
-### Première solution
-
-LSTM + max pooling + denses avec du dropout sur chaque dense, code dispo avec Keras
-
-https://www.kaggle.com/sbongo/for-beginners-tackling-toxic-using-keras
-
-Commencer par ça puis passer sous PyTorch ?
-
-### TODO
+## Done
 
 - lire les kernels pour se retrouver dans le paysage des solutions et prétraitements
 - implémenter le baseline (kernel Kaggle - cf. url ci-dessus LSTM, pooling etc)
-- implémenter le modèle d'Allauzen
-- implémenter le modèle GRU (kernel Kaggle bidirectional GRU)
+- implémenter le modèle de Yoon Kim
+- essayer les embeddings pré-entrainés (Glove, word2vec)
+
+
+### TODO/idées
+
+- tester les GRU plutôt que LSTM
 - implémenter une baseline sans embeddings/qui ne soit pas du deep learning
+- stacker des LSTM/convolutions
+- tester les embeddings contextuels
+- tester des entrées auxiliaires (nb de majuscules, ponctuation, longueur des commentaires, ...)
 
 
-## Plus d'idées
+## A propos des embeddings pré-entrainés
 
-- Utiliser des embeddings déjà entraînés. Voir [GloVe](https://blog.keras.io/using-pre-trained-word-embeddings-in-a-keras-model.html)
-- transform_dataset & clean_comment() --> tranformer en classe pour passer plus de paramètres au callback
+Le but est d'utiliser des embeddings pré-entrainés sur différents corpus, notemment:
+- [GloVe entraîné sur Twitter](https://nlp.stanford.edu/projects/glove/) (dimensions 25, 50, 100, 200)
+- [GloVe entraîné sur Wikipedia 2014 + Gigaword 5](https://nlp.stanford.edu/projects/glove/) (dimensions 50, 100, 200, 300)
+- [word2vec entraîné sur Google News](https://code.google.com/archive/p/word2vec/) (dimension 300)
+- fasttext (non encore disponible par la version actuelle du code)
 
+Pour charger les poids pré-entraînés d'une couche Keras Embeddings, il suffit d'appeler :
+```
+# Load GloVe pre-trained embeddings
+EMBEDDING_DIM = 200  # several embeddings sizes depending on source : 25, 50, 100, 200, 300 
+EMBEDDING_SOURCE = 'glove_wikipedia'  # {'glove_twitter', 'glove_wikipedia', 'word2vec_googlenews'}
 
-## Embedding + LSTM + 2 FC
+embeddings_matrix = embeddings.load_pretrained_embeddings(tokenizer.word_index, 
+                                                          VOCAB_SIZE, 
+                                                          EMBEDDING_DIM, 
+                                                          EMBEDDING_SOURCE)
+```
+Puis de donner cette matrice de poids directement en paramètre de la couche Keras:
+```
+emb = Embedding(vocab_size, embedding_dim, input_length=sentence_length, 
+                weights=[embedding_matrix])(input)
+```
 
-Voir [notebook](kernels/embeddings_lstm_dense.ipynb).
-- Accuracy de 98.25% sur validation set (98.31 sur train)
-- 2 epochs seulement, mais stagne au delà du premier tiers de la deuxième epoch
-- split train/validation ratio de 0.1
-- dropout (p=0.1) pour chaque couche dense
-- dimension des embeddings de 128
-- longueur max/padding : 200
+## Modèles de réseaux disponibles
+
+2 réseaux sont actuellement disponibles, le modèle de Yoon Kim et un modèle de LSTM bidirectionnel. Ils peuvent être chargés facilement grâce aux fonctions `models.yoon_kim()` et `models.bidirectional_lstm()`.
