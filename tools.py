@@ -11,7 +11,6 @@ from keras.callbacks import Callback
 from keras.models import model_from_json
 from nltk.corpus import stopwords
 from nltk.stem.wordnet import WordNetLemmatizer
-# from nltk.tokenize import word_tokenize
 from nltk.tokenize import TweetTokenizer
 
 CLASSES = ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
@@ -30,7 +29,7 @@ class RocAucEvaluation(Callback):
     def __init__(self, validation_data=(), interval=1):
         """
         Object constructor
-        :param validation_data: tuple (X_valid, y_valid
+        :param validation_data: tuple (X_valid, y_valid)
         :param interval: callback called after each 'interval' epochs
         """
         super(Callback, self).__init__()
@@ -116,7 +115,7 @@ def load_nnet(name, dir="models/"):
     Load a pre-trained keras model from disk.
     :param name: path of the model, without the extension 'json' or 'h5'
     :param dir: directory where is located the model
-    :return: the keras model to compile
+    :return: the keras model ready to fit
     """
     # load json and create model
     with open("{}{}.json".format(dir, name), "r") as json_file:
@@ -124,6 +123,9 @@ def load_nnet(name, dir="models/"):
     model = model_from_json(loaded_model_json)
     # load weights into new model
     model.load_weights("{}{}.h5".format(dir, name))
+    model.compile(loss='binary_crossentropy',
+                  optimizer='adam',
+                  metrics=['accuracy'])
     return model
 
 
@@ -145,6 +147,53 @@ def save_nnet(model, name, dir="models/"):
 #########################################
 ########### PRE-PROCESSING ##############
 #########################################
+
+
+class CommentLength:
+    """
+    Object returning the number of words of each comment.
+    """
+    def transform(self, comment):
+        # get comment length (taking care of empty comments to avoid division by 0)
+        return max(len(comment.split()), 1)
+
+
+class CharCounter:
+    """
+    Object returning the number of occurences of a set of chars in each comment.
+    """
+    def __init__(self, chars_set={'!', '?'}, divide_by_len=False):
+        self.chars_set = chars_set
+        self.divide_by_len = divide_by_len
+
+    def transform(self, comment):
+        # get comment length (taking care of empty comments to avoid division by 0)
+        if self.divide_by_len:
+            comment_length = max(len(comment.split()), 1)
+            char_count = sum(char in self.chars_set for char in comment) / comment_length
+        else:
+            char_count = sum(char in self.chars_set for char in comment)
+        return char_count
+
+
+class UppercaseWordsCounter:
+    """
+    Object returning number of words in capital letters in a comment.
+    """
+    def __init__(self, divide_by_len=False):
+        self.divide_by_len = divide_by_len
+        self.re_I = re.compile('(\s*)I(\s*)')
+
+    def transform(self, comment):
+        # lower 'I' in comment to ignore it
+        comment_without_I = self.re_I.sub('i', comment)
+        # count number of words in capital letters
+        if self.divide_by_len:
+            words = comment_without_I.split()
+            count = sum(map(str.isupper, words)) / max(len(words), 1)
+        else:
+            count = sum(map(str.isupper, comment_without_I.split()))
+        return count
 
 
 class CommentCleaner:
@@ -252,7 +301,7 @@ class CommentPadder:
         return clean_comment
 
 
-def transform_dataset(dataset, transformer=CommentCleaner, kwargs={}):
+def transform_dataset(dataset, transformer=CommentCleaner, kwargs={}, n_prints=1000):
     """
     @brief: apply transform func on a dataset of comments
 
@@ -265,7 +314,7 @@ def transform_dataset(dataset, transformer=CommentCleaner, kwargs={}):
         transform_dataset: iterable of strings, transformed comments
     """
     transform_dataset = dataset.copy()
-    print_every = int(np.ceil(len(dataset) / 1000))
+    print_every = int(np.ceil(len(dataset) / n_prints))
     transformer = transformer(**kwargs)
 
     for (i_txt, txt) in enumerate(dataset):
