@@ -1,13 +1,15 @@
 import numpy as np
 
 
-def load_pretrained_embeddings(word_index, vocab_size, emb_dim=200, source='glove_twitter'):
+def load_pretrained_embeddings(word_index, vocab_size, emb_dim=200, source='glove_twitter', norm_init=True):
     """
     Build embeddings layer weights from pre-trained word vectors.
     :param word_index: dictionary mapping our words to their numerical index (sorted from most to least frequent)
     :param vocab_size: number of most frequent words we want to consider
     :param emb_dim: dimension of the embeddings vectors
-    :param source: the pre-trained word vectors dataset, in {'glove_twitter', 'glove_wikipedia', 'word2vec_googlenews'}
+    :param source: the pre-trained word vectors dataset to use to build embedding matrix, in
+                   {'glove_twitter', 'glove_wikipedia', 'word2vec_googlenews', 'fasttext_crawl'}
+    :param norm_init: if True, init emb matrix with pre-trained vectors normal distribution, otherwise zeros.
     :return: the embeddings weights to give to keras layer
     """
     # parse file name
@@ -26,15 +28,20 @@ def load_pretrained_embeddings(word_index, vocab_size, emb_dim=200, source='glov
             raise ValueError("'word2vec_googlenews' embeddings are only available for dimension 300")
         embeddings_file = 'embeddings/GoogleNews-vectors-negative300.bin'
 
+    elif source == 'fasttext_crawl':
+        if emb_dim != 300:
+            raise ValueError("'fasttext_crawl' embeddings are only available for dimension 300")
+        embeddings_file = 'embeddings/crawl-300d-2M.vec'
+
     else:
         raise ValueError("Unknown pre-trained embeddings source. "
                          "Must be in {'glove_twitter', 'glove_wikipedia', 'word2vec_googlenews'}")
 
     # parse embeddings file
-    if source.split('_')[0] == "glove":
-        word_vectors, n_emb = load_glove_embeddings(embeddings_file, word_index, vocab_size, emb_dim)
+    if source.split('_')[0] in {"glove", "fasttext"}:
+        word_vectors, n_emb = load_txt_embeddings(embeddings_file, word_index, vocab_size, emb_dim)
     elif source.split('_')[0] == "word2vec":
-        word_vectors, n_emb = load_word2vec_embeddings(embeddings_file, word_index, vocab_size, emb_dim)
+        word_vectors, n_emb = load_bin_embeddings(embeddings_file, word_index, vocab_size, emb_dim)
 
     print('Number of pre-trained word vectors in database       : {}'.format(n_emb))
     print("Number of our words with a pre-trained embedding     : {}".format(len(word_vectors)))
@@ -42,11 +49,15 @@ def load_pretrained_embeddings(word_index, vocab_size, emb_dim=200, source='glov
 
     # Init a weight matrix for words in training docs matching pre-trained embeddings statistics
     # get mean and std values of pre-trained embeddings
-    all_embs = np.stack(word_vectors.values())
-    emb_mean, emb_std = np.mean(all_embs, axis=0), np.std(all_embs, axis=0)
-    del all_embs
-    # init matrix to embeddings statistical distribution
-    embedding_matrix = np.random.normal(emb_mean, emb_std, (vocab_size, emb_dim))
+    if norm_init:
+        all_embs = np.stack(word_vectors.values())
+        emb_mean, emb_std = np.mean(all_embs, axis=0), np.std(all_embs, axis=0)
+        del all_embs
+        # init matrix to embeddings statistical distribution
+        embedding_matrix = np.random.normal(emb_mean, emb_std, (vocab_size, emb_dim))
+    # Init a weight matrix for words in training docs with zeros
+    else:
+        embedding_matrix = np.zeros((vocab_size, emb_dim))
 
     # Loop on words in our documents to update known word vectors
     for word, index in word_index.items():
@@ -61,12 +72,18 @@ def load_pretrained_embeddings(word_index, vocab_size, emb_dim=200, source='glov
     return embedding_matrix
 
 
-def load_glove_embeddings(embeddings_file, word_index, vocab_size, emb_dim):
+def load_txt_embeddings(embeddings_file, word_index, vocab_size, emb_dim):
     """
-    Get GloVe pre-trained word vectors matching to our words of interest.
+    Get GloVe or FastText pre-trained word vectors matching to our words of interest.
+    The input file is a text file (with an optionnal header) of format : <word> <dim1> ... <dimN>.
     """
     word_vectors = {}
     with open(embeddings_file, 'r') as file:
+
+        # remove header for fasttext .vec file
+        if embeddings_file.split('.')[-1] == "fasttext":
+            _ = file.readline()
+
         for i_line, line in enumerate(file):
             # display loading every 1000 words
             if i_line % 1000 == 0:
@@ -86,9 +103,10 @@ def load_glove_embeddings(embeddings_file, word_index, vocab_size, emb_dim):
     return word_vectors, n_emb
 
 
-def load_word2vec_embeddings(embeddings_file, word_index, vocab_size, emb_dim):
+def load_bin_embeddings(embeddings_file, word_index, vocab_size, emb_dim):
     """
     Get Word2Vec pre-trained word vectors matching to our words of interest.
+    The input file is a txt/binary file (with a txt header) of format : <word> <dim1> ... <dimN>.
     """
     word_vectors = {}
     with open(embeddings_file, "rb") as file:
