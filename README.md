@@ -18,12 +18,22 @@ Date : February 2019
 
 ### TODO/idées
 
-- tester les GRU plutôt que LSTM
+- tester les GRU plutôt que LSTM (plus léger, mais a plus de mal à exploiter le slongues dépendances)
 - implémenter une baseline sans embeddings/qui ne soit pas du deep learning
-- stacker des LSTM/convolutions
+- stacker des LSTM
+- enchainer LSTM puis convolution [ici](https://www.kaggle.com/fizzbuzz/bi-lstm-conv-layer-lb-score-0-9840), [là](https://www.kaggle.com/eashish/bidirectional-gru-with-convolution) ou encore [là](https://www.kaggle.com/tunguz/bi-gru-cnn-poolings-gpu-kernel-version)
 - tester les embeddings contextuels
+- embeddings fasttext
 - tester des entrées auxiliaires (nb de majuscules, ponctuation, longueur des commentaires, ...)
+- réduire l'overfitting (dropout spatial pour convolutions et lstm (`dropout=0.1, recurrent_dropout=0.1`) ou embeddings, plus de dropout et d'epochs, régularisation)
+- [concatenate avgPooling/maxPooling](https://www.kaggle.com/yekenot/pooled-gru-fasttext)
+- capsule net?
+- étudier l'influence du prétraitement (nettoyage des données, lower(), stop_words, ...)
+- plus de preprocessing [ici](https://www.kaggle.com/larryfreeman/toxic-comments-code-for-alexander-s-9872-model) ou [là](https://www.kaggle.com/fizzbuzz/toxic-data-preprocessing)
 
+Autres kernels intéressants :
+ - https://www.kaggle.com/yekenot/pooled-gru-fasttext
+ 
 
 ## A propos des embeddings pré-entrainés
 
@@ -31,7 +41,7 @@ Le but est d'utiliser des embeddings pré-entrainés sur différents corpus, not
 - [GloVe entraîné sur Twitter](https://nlp.stanford.edu/projects/glove/) (dimensions 25, 50, 100, 200)
 - [GloVe entraîné sur Wikipedia 2014 + Gigaword 5](https://nlp.stanford.edu/projects/glove/) (dimensions 50, 100, 200, 300)
 - [word2vec entraîné sur Google News](https://code.google.com/archive/p/word2vec/) (dimension 300)
-- fasttext (non encore disponible par la version actuelle du code)
+- [fastText entraîné sur Common Crawl](https://fasttext.cc/docs/en/english-vectors.html)
 
 Pour charger les poids pré-entraînés d'une couche Keras Embeddings, il suffit d'appeler :
 ```
