@@ -1,37 +1,57 @@
-from keras.layers import Dense, Input, LSTM, Embedding, Dropout, GlobalMaxPooling1D, Bidirectional, Conv1D, concatenate
+from keras.layers import Dense, Input, LSTM, GRU, Embedding, Bidirectional, Conv1D, concatenate
+from keras.layers import Dropout, SpatialDropout1D, GlobalMaxPooling1D, GlobalAveragePooling1D
 from keras.models import Model
 
 
 # TODO : add spatial dropout and/or batch norm in yoon_kim()
 # TODO : stack LSTM layers in bidirectional_lstm()
+# TODO : add regularization to limit over-fitting
 
 
 def yoon_kim(sentence_length=200, vocab_size=30000,
              n_filters=100, filters_sizes=(3, 5, 7),
-             embedding_dim=150, embedding_matrix=None, train_embeddings=True):
+             embedding_dim=150, embedding_matrix=None, train_embeddings=True,
+             aux_input_dim=None):
+    """
+    Compile a Keras nnet model. The returned model is a convolutional net adapted to NLP, inspired from Yoon Kim aticle.
+    :param sentence_length: fixed length of our truncated/padded numerical sentences.
+    :param vocab_size: dimension of our vocabulary set.
+    :param n_filters: number of kernels trained by each parallel conv layer.
+    :param filters_sizes: kernel sizes of each parallel conv layer.
+    :param embedding_dim: dimension of word vectors.
+    :param embedding_matrix: the initial weights to give to embedding layer.
+    :param train_embeddings: True if embedding layer is trainable or not.
+    :param aux_input_dim: dimension of an auxiliary input added in the last dense part of the nnet.
+    :return: the compiled keras model, ready to fit()
+    """
     # input
-    inp = Input(shape=(sentence_length,))
+    main_input = Input(shape=(sentence_length,))
     # embedding
-    emb = Embedding(vocab_size, embedding_dim, input_length=sentence_length, trainable=train_embeddings,
-                    weights=[embedding_matrix] if embedding_matrix is not None else None)(inp)
+    x = Embedding(vocab_size, embedding_dim, input_length=sentence_length, trainable=train_embeddings,
+                  weights=[embedding_matrix] if embedding_matrix is not None else None)(main_input)
 
     # Specify each convolution layer and their kernel size i.e. n-grams
     conv_layers, pool_layers = [None] * len(filters_sizes), [None] * len(filters_sizes)
     for i_layer, filter_size in enumerate(filters_sizes):
-        conv_layers[i_layer] = Conv1D(filters=n_filters, kernel_size=filter_size, activation='relu')(emb)
+        conv_layers[i_layer] = Conv1D(filters=n_filters, kernel_size=filter_size, activation='relu')(x)
         pool_layers[i_layer] = GlobalMaxPooling1D()(conv_layers[i_layer])
 
     # Gather all convolution layers
     x = concatenate([pool for pool in pool_layers], axis=1)
+
+    # auxiliary input
+    if aux_input_dim:
+        aux_input = Input(shape=(aux_input_dim,), name='aux_input')
+        # merge all inputs
+        x = concatenate([x, aux_input])
+
     # x = Dropout(0.1)(x)
-    x = Dense(50, activation='relu')(x)
-    x = Dropout(0.1)(x)
+    # x = Dense(50, activation='relu')(x)
+    # x = Dropout(0.1)(x)
     outp = Dense(6, activation='sigmoid')(x)
 
-    # # load pre-trained model from disk
-    # model = load_nnet(MODEL_NAME)
-
-    model = Model(inputs=inp, outputs=outp)
+    # build final model
+    model = Model(inputs=[main_input, aux_input] if aux_input_dim else main_input, outputs=outp)
     model.compile(loss='binary_crossentropy',
                   optimizer='adam',
                   metrics=['accuracy'])
@@ -41,29 +61,54 @@ def yoon_kim(sentence_length=200, vocab_size=30000,
 
 
 def bidirectional_lstm(sentence_length=200, vocab_size=30000,
-                       embedding_dim=150, embedding_matrix=None, train_embeddings=True):
-    # input
-    inp = Input(shape=(sentence_length,))
+                       # lstm_sizes=(60,),
+                       embedding_dim=150, embedding_matrix=None, train_embeddings=True,
+                       aux_input_dim=None):
+    """
+    Compile a Keras nnet model. The returned model is a RNN with bidirectionnal LSTM layers.
+    :param sentence_length: fixed length of our truncated/padded numerical sentences.
+    :param vocab_size: dimension of our vocabulary set.
+    :param embedding_dim: dimension of word vectors.
+    :param embedding_matrix: the initial weights to give to embedding layer.
+    :param train_embeddings: True if embedding layer is trainable or not.
+    :param aux_input_dim: dimension of an auxiliary input added in the last dense part of the nnet.
+    :return: the compiled keras model, ready to fit()
+    """
+    # main input (comments)
+    main_input = Input(shape=(sentence_length,), name='main_input')
     # embedding
-    emb = Embedding(vocab_size, embedding_dim, input_length=sentence_length, trainable=train_embeddings,
-                    weights=[embedding_matrix] if embedding_matrix is not None else None)(inp)
-    # LSTM
-    x = Bidirectional(LSTM(60, return_sequences=True, name='lstm_layer'))(emb)
-    # max pooling 1D
-    x = GlobalMaxPooling1D()(x)
+    x = Embedding(vocab_size, embedding_dim, input_length=sentence_length, trainable=train_embeddings,
+                  weights=[embedding_matrix] if embedding_matrix is not None else None)(main_input)
+
+    # LSTM layers
+    # lstm_layers = [None] * len(lstm_sizes)
+    # for i_layer, layer_size in enumerate(lstm_sizes):
+    #     lstm_layers[i_layer] = Bidirectional(LSTM(layer_size, return_sequences=True))(x)
+    #     x = lstm_layers[i_layer]
+    x = Bidirectional(LSTM(60, return_sequences=True))(x)
+
+    # pooling
+    max_pool = GlobalMaxPooling1D()(x)
+    avg_pool = GlobalAveragePooling1D()(x)
+    x = concatenate([max_pool, avg_pool])
+
+    # auxiliary input
+    if aux_input_dim:
+        aux_input = Input(shape=(aux_input_dim,), name='aux_input')
+        # merge all inputs
+        x = concatenate([x, aux_input])
+
     # dropout 1
     # x = Dropout(0.1)(x)
     # dense 1
-    x = Dense(50, activation="relu")(x)
+    # x = Dense(50, activation="relu")(x)
     # dropout 2
-    x = Dropout(0.1)(x)
+    # x = Dropout(0.1)(x)
     # dense 1
     outp = Dense(6, activation="sigmoid")(x)
 
-    # # load pre-trained model from disk
-    # model = load_nnet(MODEL_NAME)
-
-    model = Model(inputs=inp, outputs=outp)
+    # build final model
+    model = Model(inputs=[main_input, aux_input] if aux_input_dim else main_input, outputs=outp)
     model.compile(loss='binary_crossentropy',
                   optimizer='adam',
                   metrics=['accuracy'])
