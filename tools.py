@@ -200,8 +200,9 @@ class CommentCleaner:
     """
     This object is used to clean commments.
     """
-    def __init__(self, lower=True, lemma=True, stop_words=True):
+    def __init__(self, clean=True, lower=True, lemma=True, stop_words=True):
         # save config
+        self.clean = clean
         self.lower = lower
         self.lemmatize = lemma
         self.remove_stop_words = stop_words
@@ -228,24 +229,26 @@ class CommentCleaner:
         @return:
             clean_comments: list of strings, cleaned sentences
         """
-        # remove \n
-        comment = self.re_remove_newline.sub(" ", comment)
-        # remove leaky elements like ip, user
-        comment = self.re_remove_leaks.sub("", comment)
-        # removing usernames
-        comment = self.re_remove_usernames.sub("", comment)
-        # remove any non alphanum, digit character
-        clean_comment = self.re_remove_nonalphadigit.sub(" ", comment)
+        # Remove some noisy chars
+        if self.clean:
+            # remove \n
+            comment = self.re_remove_newline.sub(" ", comment)
+            # remove leaky elements like ip, user
+            comment = self.re_remove_leaks.sub("", comment)
+            # removing usernames
+            comment = self.re_remove_usernames.sub("", comment)
+            # remove any non alphanum, digit character
+            comment = self.re_remove_nonalphadigit.sub(" ", comment)
 
         # Convert to lower case , so that Hi and hi are the same
         if self.lower:
-            clean_comment = clean_comment.lower()
+            comment = comment.lower()
 
         # If processing has to be on words
         if self.lemmatize or self.remove_stop_words:
 
             # Split the sentences into words
-            words = self.tokenizer.tokenize(clean_comment)
+            words = self.tokenizer.tokenize(comment)
 
             # remove stop_words
             if self.remove_stop_words:
@@ -255,9 +258,9 @@ class CommentCleaner:
             if self.lemmatize:
                 words = [self.lemmatizer.lemmatize(word, "v") for word in words]
 
-            clean_comment = " ".join(words)
+            comment = " ".join(words)
 
-        return clean_comment
+        return comment
 
 
 class CommentPadder:
@@ -354,7 +357,7 @@ def encode(data_train, data_test, vectorizer=TfidfVectorizer()):
 class TokenVectorizer(Tokenizer):
     """
     Tokenize a dataset and create numpy padded representation.
-    Each word is replaced by its integer vocanulary index, and the sequence is optionally padded with zeros.
+    Each word is replaced by its integer vocabulary index, and the sequence is optionally padded with zeros.
     Wrapper for the Tokenizer object of Keras, with padding added
     """
 
