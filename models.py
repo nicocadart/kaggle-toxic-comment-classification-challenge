@@ -3,9 +3,10 @@ from keras.layers import Dropout, SpatialDropout1D, GlobalMaxPooling1D, GlobalAv
 from keras.models import Model
 
 
-# TODO : add spatial dropout and/or batch norm in yoon_kim()
+# TODO : add spatial dropout and/or batch norm
 # TODO : stack LSTM layers in bidirectional_lstm()
 # TODO : add regularization to limit over-fitting
+# TODO : add normalization after auxiliary input?
 
 
 def yoon_kim(sentence_length=200, vocab_size=30000,
