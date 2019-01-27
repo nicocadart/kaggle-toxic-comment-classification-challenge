@@ -6,7 +6,7 @@ from keras.models import Model
 # TODO : add spatial dropout and/or batch norm
 # TODO : stack LSTM layers in bidirectional_lstm()
 # TODO : add regularization to limit over-fitting
-# TODO : add normalization after auxiliary input?
+# TODO : add normalization and dense layer after auxiliary input?
 
 
 def yoon_kim(sentence_length=200, vocab_size=30000,
@@ -58,7 +58,7 @@ def yoon_kim(sentence_length=200, vocab_size=30000,
                   metrics=['accuracy'])
 
     # ready for .fit() !
-    return (model)
+    return model
 
 
 def bidirectional_lstm(sentence_length=200, vocab_size=30000,
@@ -77,16 +77,18 @@ def bidirectional_lstm(sentence_length=200, vocab_size=30000,
     """
     # main input (comments)
     main_input = Input(shape=(sentence_length,), name='main_input')
+
     # embedding
     x = Embedding(vocab_size, embedding_dim, input_length=sentence_length, trainable=train_embeddings,
                   weights=[embedding_matrix] if embedding_matrix is not None else None)(main_input)
+    x = SpatialDropout1D(0.1)(x)
 
     # LSTM layers
     # lstm_layers = [None] * len(lstm_sizes)
     # for i_layer, layer_size in enumerate(lstm_sizes):
     #     lstm_layers[i_layer] = Bidirectional(LSTM(layer_size, return_sequences=True))(x)
     #     x = lstm_layers[i_layer]
-    x = Bidirectional(LSTM(60, return_sequences=True))(x)
+    x = Bidirectional(LSTM(60, return_sequences=True, dropout=0.1, recurrent_dropout=0.1))(x)
 
     # pooling
     max_pool = GlobalMaxPooling1D()(x)
@@ -99,13 +101,12 @@ def bidirectional_lstm(sentence_length=200, vocab_size=30000,
         # merge all inputs
         x = concatenate([x, aux_input])
 
-    # dropout 1
-    # x = Dropout(0.1)(x)
     # dense 1
     # x = Dense(50, activation="relu")(x)
-    # dropout 2
+    # dropout 1
     # x = Dropout(0.1)(x)
-    # dense 1
+
+    # final dense
     outp = Dense(6, activation="sigmoid")(x)
 
     # build final model
@@ -115,4 +116,58 @@ def bidirectional_lstm(sentence_length=200, vocab_size=30000,
                   metrics=['accuracy'])
 
     # ready to .fit() !
-    return (model)
+    return model
+
+
+def bidir_lstm_conv(sentence_length=200, vocab_size=30000,
+                    embedding_dim=150, embedding_matrix=None, train_embeddings=True,
+                    aux_input_dim=None):
+    """
+    Compile a Keras nnet model. The returned model is a mix of LSTM followed by convolutions layers.
+    :param sentence_length: fixed length of our truncated/padded numerical sentences.
+    :param vocab_size: dimension of our vocabulary set.
+    :param embedding_dim: dimension of word vectors.
+    :param embedding_matrix: the initial weights to give to embedding layer.
+    :param train_embeddings: True if embedding layer is trainable or not.
+    :param aux_input_dim: dimension of an auxiliary input added in the last dense part of the nnet.
+    :return: the compiled keras model, ready to fit()
+    """
+    # main input (comments)
+    main_input = Input(shape=(sentence_length,), name='main_input')
+
+    # embedding
+    x = Embedding(vocab_size, embedding_dim, input_length=sentence_length, trainable=train_embeddings,
+                  weights=[embedding_matrix] if embedding_matrix is not None else None)(main_input)
+    x = SpatialDropout1D(0.1)(x)
+
+    x = Bidirectional(LSTM(60, return_sequences=True, dropout=0.1, recurrent_dropout=0.1))(x)
+    x = Conv1D(60, kernel_size=3, padding="valid")(x)
+    # add activation (ReLU) layer ?
+
+    # pooling
+    max_pool = GlobalMaxPooling1D()(x)
+    avg_pool = GlobalAveragePooling1D()(x)
+    x = concatenate([max_pool, avg_pool])
+
+    # auxiliary input
+    if aux_input_dim:
+        aux_input = Input(shape=(aux_input_dim,), name='aux_input')
+        # merge all inputs
+        x = concatenate([x, aux_input])
+
+    # dense 1
+    # x = Dense(50, activation="relu")(x)
+    # dropout 1
+    # x = Dropout(0.1)(x)
+
+    # final dense
+    outp = Dense(6, activation="sigmoid")(x)
+
+    # build final model
+    model = Model(inputs=[main_input, aux_input] if aux_input_dim else main_input, outputs=outp)
+    model.compile(loss='binary_crossentropy',
+                  optimizer='adam',
+                  metrics=['accuracy'])
+
+    # ready to .fit() !
+    return model
