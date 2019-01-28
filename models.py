@@ -202,7 +202,8 @@ class NbSvmClassifier(BaseEstimator, ClassifierMixin):
         x, y = check_X_y(x, y, accept_sparse=True)
 
         def pr(x, y_i, y):
-            p = x[y==y_i].sum(0)
+            idx = np.where(y==y_i)
+            p = x[idx].sum(0)
             return (p+1) / ((y==y_i).sum()+1)
 
         self._r = sparse.csr_matrix(np.log(pr(x,1,y) / pr(x,0,y)))
