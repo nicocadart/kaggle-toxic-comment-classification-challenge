@@ -211,25 +211,27 @@ class NbSvmClassifier(BaseEstimator, ClassifierMixin):
         return self
 
 
-class OneVAllClassifier():
+class OneVAllClassifier(BaseEstimator, ClassifierMixin):
 
-    def __init__(self, n_class, clf, params):
+    def __init__(self, n_classes, clf=NbSvmClassifier, params={}):
 
         self.models = []
-        self.n_class = n_class
+        self.n_classes = n_classes
 
-        for i_class in range(self.n_class):
-            for (param, param_val) in params.items():
-                assert(len(param_val)==n_class)
-                param_clf[param] = param_val[i_class]
-            self.models.append(clf(**param_clf))
+        if params != {}:
+            for i_class in range(self.n_classes):
+                param_clf = {}
+                for (param, param_val) in params.items():
+                    assert(len(param_val)==self.n_classes)
+                    param_clf[param] = param_val[i_class]
+                self.models.append(clf(**param_clf))
 
 
     def fit(self, X, y):
 
-        assert(y.shape[1]==n_class)
+        assert(y.shape[1]==self.n_classes)
 
-        for i_class in range(self.n_class):
+        for i_class in range(self.n_classes):
             self.models[i_class].fit(X, y[:, i_class])
 
         return self
@@ -237,19 +239,19 @@ class OneVAllClassifier():
 
     def predict_proba(self, X):
 
-        y_pred = np.ones((X.shape[0], self.n_class))
+        y_pred = np.ones((X.shape[0], self.n_classes))
 
-        for i_class in range(self.n_class):
+        for i_class in range(self.n_classes):
             y_pred[:, i_class] = self.models[i_class].predict_proba(X)[:, 1]
 
-    return y_pred
+        return y_pred
 
 
-    def predict_proba(self, X):
+    def predict(self, X):
 
-        y_pred = np.ones((X.shape[0], self.n_class))
+        y_pred = np.ones((X.shape[0], self.n_classes))
 
-        for i_class in range(self.n_class):
+        for i_class in range(self.n_classes):
             y_pred[:, i_class] = self.models[i_class].predict(X)
 
-    return y_pred
+        return y_pred
