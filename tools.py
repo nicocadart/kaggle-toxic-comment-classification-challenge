@@ -82,7 +82,7 @@ def submission(y, id_list, name, dir='data/', list_classes=CLASSES):
 ##########################################
 
 
-def load_data(path='data/', list_classes=CLASSES):
+def load_data(path='data/', language='', list_classes=CLASSES):
     """
     @brief:
         Load data and get comment, labels for train, test
@@ -97,7 +97,7 @@ def load_data(path='data/', list_classes=CLASSES):
         data_test: list of comments, used for test
         id_test: list of id, used for output
     """
-    train_set = pd.read_csv(path + 'train.csv')
+    train_set = pd.read_csv(path + 'train'+ language +'.csv')
     test_set = pd.read_csv(path + 'test.csv')
 
     y_train = train_set[list_classes].values

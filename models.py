@@ -226,6 +226,9 @@ class OneVAllClassifier(BaseEstimator, ClassifierMixin):
                     assert(len(param_val)==self.n_classes)
                     param_clf[param] = param_val[i_class]
                 self.models.append(clf(**param_clf))
+        else:
+            for i_class in range(self.n_classes):
+                self.models.append(clf())
 
 
     def fit(self, X, y):
@@ -233,6 +236,7 @@ class OneVAllClassifier(BaseEstimator, ClassifierMixin):
         assert(y.shape[1]==self.n_classes)
 
         for i_class in range(self.n_classes):
+            print('Fitting model {}:'.format(i_class))
             self.models[i_class].fit(X, y[:, i_class])
 
         return self
