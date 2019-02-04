@@ -5,13 +5,22 @@ from keras.models import Model
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.validation import check_X_y, check_is_fitted
 from sklearn.linear_model import LogisticRegression
+
+from scipy.optimize import minimize
 from scipy import sparse
 import numpy as np
+
+from tools import evaluate
 
 # TODO : add spatial dropout and/or batch norm
 # TODO : stack LSTM layers in bidirectional_lstm()
 # TODO : add regularization to limit over-fitting
 # TODO : add normalization and dense layer after auxiliary input?
+# TODO : Doc
+
+##########################################
+########### NEURAL NETS ##################
+##########################################
 
 
 def yoon_kim(sentence_length=200, vocab_size=30000,
@@ -178,6 +187,10 @@ def bidir_lstm_conv(sentence_length=200, vocab_size=30000,
     return (model)
 
 
+##########################################
+########### STANDARD CLASSIFIERS #########
+##########################################
+
 
 class NbSvmClassifier(BaseEstimator, ClassifierMixin):
     def __init__(self, C=1.0, dual=False, n_jobs=1, solver='liblinear'):
@@ -260,3 +273,106 @@ class OneVAllClassifier(BaseEstimator, ClassifierMixin):
             y_pred[:, i_class] = self.models[i_class].predict(X)
 
         return y_pred
+
+
+# ##########################################
+# ########### MODEL MIX ####################
+# ##########################################
+#
+#
+# def model_mix(X_train, y_train, X_val, y_val, models):
+#     """
+#     @brief: Load gridsearch result in .csv file
+#     @param:
+#             X_train: ndarray or scipy.sparse (n_samples, n_features),
+#                         array of samples to train
+#             y_train: ndarray or scipy.sparse (n_samples,),
+#                         array of targets for each train sample
+#             X_val: ndarray or scipy.sparse (n_samples, n_features),
+#                         array of samples to test
+#             y_val: ndarray or scipy.sparse (n_samples,),
+#                         array of targets for each test sample
+#             models: list of sklearn models (with params already passed) as a
+#                     list of tuple (name, model, fit_params)
+#     @return:
+#             models: list of learned sklearn/Keras models as a list of tuple
+#                         (name, model, fit_params)
+#             optimal_weights: weights for ponderation between model prediction,
+#                              optimized for those models
+#      """
+#
+#     # --------------------------------
+#     #  Train each model independently
+#     # --------------------------------
+#
+#     # Train all models on the training data, and print the resulting accuracy
+#     y_proba_pred = []
+#     for i_model, model in enumerate(models):
+#         model_name = models[i_model][0]
+#         print('Training model {}'.format(model_name))
+#
+#         model = models[i_model][1]
+#         fit_params = models[i_model][2]
+#         model.fit(X_train, y_train, **fit_params)
+#
+#         if 'batch_size' in fit_params.keys():
+#             y_train_pred = model.predict(X_train, batch_size=fit_params['batch_size'])
+#             y_valid_pred = model.predict(X_valid, batch_size=fit_params['batch_size'])
+#
+#         else:
+#             y_train_pred = model.predict(X_train)
+#             y_valid_pred = model.predict(X_valid)
+#
+#         valid_score = evaluate(y_valid, y_valid_pred)
+#         train_score = evaluate(y_train, y_train_pred)
+#
+#         print("ROC-AUC score on train set : {:.4f}".format(train_score))
+#         print("ROC-AUC score on validation set : {:.4f}".format(valid_score))
+#
+#         y_proba_pred.append(y_valid_pred)
+#
+#     # --------------------------------
+#     #  Find ensemble learning weights
+#     # --------------------------------
+#
+#     # We want to minimize the logloss of the global prediction
+#     def score_func(weights, func=evaluate):
+#         final_prediction = 0
+#         for weight, prediction in zip(weights, y_proba_pred):
+#             final_prediction += weight * prediction
+#         return func(y_valid, final_prediction)
+#
+#     # Uniform initialisation
+#     init_weights = np.ones((len(y_proba_pred),)) / len(y_proba_pred)
+#     # Weights are in range [0; 1] and must sum to 1
+#     constraint = ({'type': 'eq', 'fun': lambda w: 1 - sum(w)})
+#     bounds = [(0, 1)] * len(y_proba_pred)
+#     # Compute best weights (method chosen with the advice of Kaggle kernel)
+#     res = minimize(score_func, init_weights, method='SLSQP', bounds=bounds, constraints=constraint)
+#     optimal_weights = res['x']
+#
+#     return models, optimal_weights
+#
+#
+# def model_mix_predict(X, models, optimal_weights, n_classes):
+#     """
+#     @brief: take a list of sklearn models, weights and a dataset and return the weighted prediction
+#             over the samples
+#     @param:
+#             X: ndarray, (n_samples, n_features), dataset to predict
+#             models: list of tuple (name, model, fit_params), with model a sklearn model already trained
+#             optimal_weights: list of float, weight for each model (sum(weight)==1)
+#     @return:
+#             y_pred_p: ndarray, (n_samples, n_classes), probability for each class for each sample
+#     """
+#     y_pred_p = np.zeros((X.shape[0], n_classes))
+#
+#     for i_model, model in enumerate(models):
+#         if 'batch_size' in model[2].keys():
+#             y_pred_p += optimal_weights[i_model] * model[1].predict(X,
+#                                                                     batch_size=model[2]['batch_size'],
+#                                                                     verbose=1)
+#         else:
+#             y_pred_p += optimal_weights[i_model] * model[1].predict_proba(X)
+#
+#     return y_pred_p
