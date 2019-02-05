@@ -147,6 +147,29 @@ def save_nnet(model, name, dir="models/"):
     model.save_weights("{}{}.h5".format(dir, name))
 
 
+def save_pred(prediction, name, dir="data/"):
+    """
+    Save a prediction to disk.
+    :param prediction: numpy array, (n_samples, n_classes)
+    :param name: path of the model, without the extension '.csv'
+    :param dir: directory where to store the model
+    """
+
+    np.savetxt(dir+name+"_y_pred.csv", prediction, delimiter=";")
+
+
+def load_pred(name, dir="data/"):
+    """
+    Save a prediction to disk.
+    :param name: path of the model, without the extension '.csv'
+    :param dir: directory where to store the model
+
+    :return prediction: numpy array, (n_samples, n_classes)
+    """
+
+    return np.loadtxt(dir+name+"_y_pred.csv", delimiter=";")
+
+
 #########################################
 ########### PRE-PROCESSING ##############
 #########################################

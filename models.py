@@ -275,104 +275,70 @@ class OneVAllClassifier(BaseEstimator, ClassifierMixin):
         return y_pred
 
 
-# ##########################################
-# ########### MODEL MIX ####################
-# ##########################################
-#
-#
-# def model_mix(X_train, y_train, X_val, y_val, models):
-#     """
-#     @brief: Load gridsearch result in .csv file
-#     @param:
-#             X_train: ndarray or scipy.sparse (n_samples, n_features),
-#                         array of samples to train
-#             y_train: ndarray or scipy.sparse (n_samples,),
-#                         array of targets for each train sample
-#             X_val: ndarray or scipy.sparse (n_samples, n_features),
-#                         array of samples to test
-#             y_val: ndarray or scipy.sparse (n_samples,),
-#                         array of targets for each test sample
-#             models: list of sklearn models (with params already passed) as a
-#                     list of tuple (name, model, fit_params)
-#     @return:
-#             models: list of learned sklearn/Keras models as a list of tuple
-#                         (name, model, fit_params)
-#             optimal_weights: weights for ponderation between model prediction,
-#                              optimized for those models
-#      """
-#
-#     # --------------------------------
-#     #  Train each model independently
-#     # --------------------------------
-#
-#     # Train all models on the training data, and print the resulting accuracy
-#     y_proba_pred = []
-#     for i_model, model in enumerate(models):
-#         model_name = models[i_model][0]
-#         print('Training model {}'.format(model_name))
-#
-#         model = models[i_model][1]
-#         fit_params = models[i_model][2]
-#         model.fit(X_train, y_train, **fit_params)
-#
-#         if 'batch_size' in fit_params.keys():
-#             y_train_pred = model.predict(X_train, batch_size=fit_params['batch_size'])
-#             y_valid_pred = model.predict(X_valid, batch_size=fit_params['batch_size'])
-#
-#         else:
-#             y_train_pred = model.predict(X_train)
-#             y_valid_pred = model.predict(X_valid)
-#
-#         valid_score = evaluate(y_valid, y_valid_pred)
-#         train_score = evaluate(y_train, y_train_pred)
-#
-#         print("ROC-AUC score on train set : {:.4f}".format(train_score))
-#         print("ROC-AUC score on validation set : {:.4f}".format(valid_score))
-#
-#         y_proba_pred.append(y_valid_pred)
-#
-#     # --------------------------------
-#     #  Find ensemble learning weights
-#     # --------------------------------
-#
-#     # We want to minimize the logloss of the global prediction
-#     def score_func(weights, func=evaluate):
-#         final_prediction = 0
-#         for weight, prediction in zip(weights, y_proba_pred):
-#             final_prediction += weight * prediction
-#         return func(y_valid, final_prediction)
-#
-#     # Uniform initialisation
-#     init_weights = np.ones((len(y_proba_pred),)) / len(y_proba_pred)
-#     # Weights are in range [0; 1] and must sum to 1
-#     constraint = ({'type': 'eq', 'fun': lambda w: 1 - sum(w)})
-#     bounds = [(0, 1)] * len(y_proba_pred)
-#     # Compute best weights (method chosen with the advice of Kaggle kernel)
-#     res = minimize(score_func, init_weights, method='SLSQP', bounds=bounds, constraints=constraint)
-#     optimal_weights = res['x']
-#
-#     return models, optimal_weights
-#
-#
-# def model_mix_predict(X, models, optimal_weights, n_classes):
-#     """
-#     @brief: take a list of sklearn models, weights and a dataset and return the weighted prediction
-#             over the samples
-#     @param:
-#             X: ndarray, (n_samples, n_features), dataset to predict
-#             models: list of tuple (name, model, fit_params), with model a sklearn model already trained
-#             optimal_weights: list of float, weight for each model (sum(weight)==1)
-#     @return:
-#             y_pred_p: ndarray, (n_samples, n_classes), probability for each class for each sample
-#     """
-#     y_pred_p = np.zeros((X.shape[0], n_classes))
-#
-#     for i_model, model in enumerate(models):
-#         if 'batch_size' in model[2].keys():
-#             y_pred_p += optimal_weights[i_model] * model[1].predict(X,
-#                                                                     batch_size=model[2]['batch_size'],
-#                                                                     verbose=1)
-#         else:
-#             y_pred_p += optimal_weights[i_model] * model[1].predict_proba(X)
-#
-#     return y_pred_p
+##########################################
+########### MODEL MIX ####################
+##########################################
+
+
+def model_mix(y_preds, y_true):
+    """
+    @brief: Load prediction for different models and compute optimal weights for model mix
+    @param:
+            y_preds: list of tuple (str, ndarray), each tuple has the name of a
+                    model and a ndarray of predicted proba for each class
+            y_true: ndarray (n_samples, n_classes), should have the same shape as all y_preds
+
+    @return:
+            optimal_weights: weights for ponderation between model prediction,
+                             optimized for those models
+     """
+    names, y_pred_list = zip(*y_preds)
+
+    for i in range(len(names)):
+        assert(y_pred_list[i].shape==y_true.shape)
+        print('Prediction score: {:.4f}'.format(evaluate(y_true, y_pred_list[i])))
+
+    # --------------------------------
+    #  Find ensemble learning weights
+    # --------------------------------
+
+    # We want to minimize the logloss of the global prediction
+    def score_func(weights, func=evaluate):
+        final_prediction = 0
+        for weight, prediction in zip(weights, y_pred_list):
+            final_prediction += weight * prediction
+        return func(y_true, final_prediction)
+
+    # Uniform initialisation
+    init_weights = np.ones((len(y_pred_list),)) / len(y_pred_list)
+    # Weights are in range [0; 1] and must sum to 1
+    constraint = ({'type': 'eq', 'fun': lambda w: 1 - sum(w)})
+    bounds = [(0, 1)] * len(y_pred_list)
+    # Compute best weights (method chosen with the advice of Kaggle kernel)
+    res = minimize(score_func, init_weights, method='SLSQP', bounds=bounds, constraints=constraint)
+    optimal_weights = res['x']
+
+    print('Model mix prediction on train: {:.4f}'.format(score_func(optimal_weights)))
+
+    return optimal_weights
+
+
+def model_mix_predict(y_preds, optimal_weights):
+    """
+    @brief: take a list of sklearn models, weights and a dataset and return the weighted prediction
+            over the samples
+    @param:
+            X: ndarray, (n_samples, n_features), dataset to predict
+            models: list of tuple (name, model, fit_params), with model a sklearn model already trained
+            optimal_weights: list of float, weight for each model (sum(weight)==1)
+    @return:
+            y_pred_p: ndarray, (n_samples, n_classes), probability for each class for each sample
+    """
+
+    names, y_pred_list = zip(*y_preds)
+
+    final_prediction = np.zeros(y_pred_list[0].shape)
+    for weight, prediction in zip(optimal_weights, y_pred_list):
+        final_prediction += weight * prediction
+
+    return final_prediction
