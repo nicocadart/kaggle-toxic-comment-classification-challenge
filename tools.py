@@ -3,12 +3,15 @@ import numpy as np
 import re  # for regex
 
 import pandas as pd
+
 from sklearn.metrics import roc_auc_score
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer, HashingVectorizer
+
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import Tokenizer
 from keras.callbacks import Callback
 from keras.models import model_from_json
+
 from nltk.corpus import stopwords
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.tokenize import TweetTokenizer
@@ -82,7 +85,7 @@ def submission(y, id_list, name, dir='data/', list_classes=CLASSES):
 ##########################################
 
 
-def load_data(path='data/', list_classes=CLASSES):
+def load_data(path='data/', language='', list_classes=CLASSES):
     """
     @brief:
         Load data and get comment, labels for train, test
@@ -97,7 +100,7 @@ def load_data(path='data/', list_classes=CLASSES):
         data_test: list of comments, used for test
         id_test: list of id, used for output
     """
-    train_set = pd.read_csv(path + 'train.csv')
+    train_set = pd.read_csv(path + 'train'+ language +'.csv')
     test_set = pd.read_csv(path + 'test.csv')
 
     y_train = train_set[list_classes].values
@@ -142,6 +145,29 @@ def save_nnet(model, name, dir="models/"):
         json_file.write(model_json)
     # serialize weights to HDF5
     model.save_weights("{}{}.h5".format(dir, name))
+
+
+def save_pred(prediction, name, dir="data/"):
+    """
+    Save a prediction to disk.
+    :param prediction: numpy array, (n_samples, n_classes)
+    :param name: path of the model, without the extension '.csv'
+    :param dir: directory where to store the model
+    """
+
+    np.savetxt(dir+name+"_y_pred.csv", prediction, delimiter=";")
+
+
+def load_pred(name, dir="data/"):
+    """
+    Save a prediction to disk.
+    :param name: path of the model, without the extension '.csv'
+    :param dir: directory where to store the model
+
+    :return prediction: numpy array, (n_samples, n_classes)
+    """
+
+    return np.loadtxt(dir+name+"_y_pred.csv", delimiter=";")
 
 
 #########################################

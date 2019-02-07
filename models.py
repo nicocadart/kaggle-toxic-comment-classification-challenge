@@ -5,13 +5,22 @@ from keras.models import Model
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.validation import check_X_y, check_is_fitted
 from sklearn.linear_model import LogisticRegression
+
+from scipy.optimize import minimize
 from scipy import sparse
 import numpy as np
+
+from tools import evaluate
 
 # TODO : add spatial dropout and/or batch norm
 # TODO : stack LSTM layers in bidirectional_lstm()
 # TODO : add regularization to limit over-fitting
 # TODO : add normalization and dense layer after auxiliary input?
+# TODO : Doc
+
+##########################################
+########### NEURAL NETS ##################
+##########################################
 
 
 def yoon_kim(sentence_length=200, vocab_size=30000,
@@ -178,6 +187,10 @@ def bidir_lstm_conv(sentence_length=200, vocab_size=30000,
     return (model)
 
 
+##########################################
+########### STANDARD CLASSIFIERS #########
+##########################################
+
 
 class NbSvmClassifier(BaseEstimator, ClassifierMixin):
     def __init__(self, C=1.0, dual=False, n_jobs=1, solver='liblinear'):
@@ -226,6 +239,9 @@ class OneVAllClassifier(BaseEstimator, ClassifierMixin):
                     assert(len(param_val)==self.n_classes)
                     param_clf[param] = param_val[i_class]
                 self.models.append(clf(**param_clf))
+        else:
+            for i_class in range(self.n_classes):
+                self.models.append(clf())
 
 
     def fit(self, X, y):
@@ -233,6 +249,7 @@ class OneVAllClassifier(BaseEstimator, ClassifierMixin):
         assert(y.shape[1]==self.n_classes)
 
         for i_class in range(self.n_classes):
+            print('Fitting model {}:'.format(i_class))
             self.models[i_class].fit(X, y[:, i_class])
 
         return self
@@ -256,3 +273,72 @@ class OneVAllClassifier(BaseEstimator, ClassifierMixin):
             y_pred[:, i_class] = self.models[i_class].predict(X)
 
         return y_pred
+
+
+##########################################
+########### MODEL MIX ####################
+##########################################
+
+
+def model_mix(y_preds, y_true):
+    """
+    @brief: Load prediction for different models and compute optimal weights for model mix
+    @param:
+            y_preds: list of tuple (str, ndarray), each tuple has the name of a
+                    model and a ndarray of predicted proba for each class
+            y_true: ndarray (n_samples, n_classes), should have the same shape as all y_preds
+
+    @return:
+            optimal_weights: weights for ponderation between model prediction,
+                             optimized for those models
+     """
+    names, y_pred_list = zip(*y_preds)
+
+    for i in range(len(names)):
+        assert(y_pred_list[i].shape==y_true.shape)
+        print('Prediction score: {:.4f}'.format(evaluate(y_true, y_pred_list[i])))
+
+    # --------------------------------
+    #  Find ensemble learning weights
+    # --------------------------------
+
+    # We want to minimize the logloss of the global prediction
+    def score_func(weights, func=evaluate):
+        final_prediction = 0
+        for weight, prediction in zip(weights, y_pred_list):
+            final_prediction += weight * prediction
+        return func(y_true, final_prediction)
+
+    # Uniform initialisation
+    init_weights = np.ones((len(y_pred_list),)) / len(y_pred_list)
+    # Weights are in range [0; 1] and must sum to 1
+    constraint = ({'type': 'eq', 'fun': lambda w: 1 - sum(w)})
+    bounds = [(0, 1)] * len(y_pred_list)
+    # Compute best weights (method chosen with the advice of Kaggle kernel)
+    res = minimize(score_func, init_weights, method='SLSQP', bounds=bounds, constraints=constraint)
+    optimal_weights = res['x']
+
+    print('Model mix prediction on train: {:.4f}'.format(score_func(optimal_weights)))
+
+    return optimal_weights
+
+
+def model_mix_predict(y_preds, optimal_weights):
+    """
+    @brief: take a list of sklearn models, weights and a dataset and return the weighted prediction
+            over the samples
+    @param:
+            X: ndarray, (n_samples, n_features), dataset to predict
+            models: list of tuple (name, model, fit_params), with model a sklearn model already trained
+            optimal_weights: list of float, weight for each model (sum(weight)==1)
+    @return:
+            y_pred_p: ndarray, (n_samples, n_classes), probability for each class for each sample
+    """
+
+    names, y_pred_list = zip(*y_preds)
+
+    final_prediction = np.zeros(y_pred_list[0].shape)
+    for weight, prediction in zip(optimal_weights, y_pred_list):
+        final_prediction += weight * prediction
+
+    return final_prediction
