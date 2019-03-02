@@ -100,7 +100,7 @@ def load_data(path='data/', language='', list_classes=CLASSES):
         data_test: list of comments, used for test
         id_test: list of id, used for output
     """
-    train_set = pd.read_csv(path + 'train'+ language +'.csv')
+    train_set = pd.read_csv(path + 'train' + language + '.csv')
     test_set = pd.read_csv(path + 'test.csv')
 
     y_train = train_set[list_classes].values
@@ -154,8 +154,7 @@ def save_pred(prediction, name, dir="data/"):
     :param name: path of the model, without the extension '.csv'
     :param dir: directory where to store the model
     """
-
-    np.savetxt(dir+name+"_y_pred.csv", prediction, delimiter=";")
+    np.savetxt(dir + name + "_y_pred.csv", prediction, delimiter=";")
 
 
 def load_pred(name, dir="data/"):
@@ -166,8 +165,7 @@ def load_pred(name, dir="data/"):
 
     :return prediction: numpy array, (n_samples, n_classes)
     """
-
-    return np.loadtxt(dir+name+"_y_pred.csv", delimiter=";")
+    return np.loadtxt(dir + name + "_y_pred.csv", delimiter=";")
 
 
 #########################################
@@ -248,12 +246,8 @@ class CommentCleaner:
         """
         @brief: This function receives comments and returns clean word-list
         (from https://www.kaggle.com/jagangupta/stop-the-s-toxic-comments-eda)
-
-        @param:
-            comments: list of strings, sentences to be cleaned
-
-        @return:
-            clean_comments: list of strings, cleaned sentences
+        @param: comments: list of strings, sentences to be cleaned
+        @return: clean_comments: list of strings, cleaned sentences
         """
         # Remove some noisy chars
         if self.clean:
@@ -387,10 +381,11 @@ class TokenVectorizer(Tokenizer):
     Wrapper for the Tokenizer object of Keras, with padding added
     """
 
-    def __init__(self, max_len=-1, max_features=30000, **kwargs):
+    def __init__(self, max_len=-1, max_features=30000, truncating='post', **kwargs):
         super().__init__(num_words=max_features, **kwargs)
         self.max_len = max_len
         self.max_features = max_features
+        self.truncating = truncating
 
     def fit(self, text):
         return self.fit_on_texts(text)
@@ -398,57 +393,6 @@ class TokenVectorizer(Tokenizer):
     def transform(self, text):
         list_tokens = self.texts_to_sequences(text)
         if self.max_len > 0:
-            return pad_sequences(list_tokens, maxlen=self.max_len, truncating='post')
+            return pad_sequences(list_tokens, maxlen=self.max_len, truncating=self.truncating)
         else:
             return list_tokens
-
-
-if __name__ == '__main__':
-    data_train, y_train, data_test, id_test = load_data()
-
-    #####################
-    ###### ENCODING #####
-    #####################
-
-    # -------
-    ### CBOW
-
-    # Create a CBOW vectorizer for english words, without accent,
-    ## limiting the vocabulary to 30000 words max.
-
-    count_vectorizer = CountVectorizer(analyzer='word', stop_words='english',
-                                       strip_accents='unicode', max_features=30000)
-
-    # -------
-    ### Hash
-
-    # Create a CBOW vectorizer for english words, without accent. No limit on vocab size
-
-    hash_vectorizer = HashingVectorizer(analyzer='word', stop_words='english',
-                                        strip_accents='unicode')
-
-    # -------
-    ### TFIDF
-
-    # Create a TFIDF vectorizer for english words, (only unigrams), limiting the vocabulary to
-    # 30000 words max.and filtering words with frequency under 10.
-    ## Remove accents, and using idf for filtering, with smoothing to avoid zero division
-
-    tfidf_vectorizer = TfidfVectorizer(stop_words='english', analyzer='word', ngram_range=(1, 1),
-                                       min_df=10, max_features=30000,
-                                       strip_accents='unicode', use_idf=1, smooth_idf=1,
-                                       sublinear_tf=1)
-
-    # ------------
-    ### Tokenizer
-
-    ## Tokenize the corpus, with only the 30000 most commons tokens, and pad the sentences to 200
-    tokens_vectorizer = TokenVectorizer(max_len=200, max_features=30000)
-
-    X_train, X_test = encode(data_train, data_test, vectorizer=tokens_vectorizer)
-
-    # Vocabulary can be extracted from the vectorizer object (if tdidf or count)
-    # print(count_vectorizer.get_feature_names())
-
-    y_test = np.ones((X_test.shape[0], y_train.shape[1]))
-    submission(y_test, id_test)

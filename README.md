@@ -1,39 +1,37 @@
 # kaggle-toxic-comment-classification-challenge
 
-
 Kaggle Challenge : Toxic Comment Classification, for course OPT7 of master AIC at Université Paris-Sud.
 
 Autors : M. Bauw, N. Cadart, B. Sarthou
 
-Date : February 2019
+Date : December 2018 - February 2019
 
+- [kaggle-toxic-comment-classification-challenge](#kaggle-toxic-comment-classification-challenge)
+  - [Description et installation](#description-et-installation)
+  - [A propos des embeddings pré-entrainés](#a-propos-des-embeddings-pré-entrainés)
+  - [A propos des embeddings contextuels](#a-propos-des-embeddings-contextuels)
+  - [Done](#done)
+  - [TODO](#todo)
 
-## Done
+Ce repo rassemble la plupart du code utilisé dans le cadre du [Toxic Comment Classification Kaggle Challenge](https://www.kaggle.com/c/jigsaw-toxic-comment-classification-challenge). Il contient les outils et notebooks qui ont permis de générer les résultats, avec quelques exemples de modèles testés. En revanche, la très grande majorité des classifieurs testés n'est pas représentée ici. En effet, ces fichiers diffèrent seulement de quelques paramètres, et ont donc été générés en local afin d'être exécutés sur d'autres machines distantes pour plus de rapidité.
 
-- lire les kernels pour se retrouver dans le paysage des solutions et prétraitements
-- implémenter le baseline (kernel Kaggle - cf. url ci-dessus LSTM, pooling etc)
-- implémenter le modèle de Yoon Kim
-- essayer les embeddings pré-entrainés (Glove, word2vec)
+## Description et installation
 
+Utilitaires :
+- `tools.py` définit de nombreuses fonctions permettant de charger, nettoyer ou convertir rapidement les données, de simplifier la gestion (chargement ou sauvegarde) des classifieurs, ou bien d'évaluer les résultats.
+- `embeddings.py` définit quelques fonctions utilitaires pour charger directement une matrice de poids d'embeddings pré-entraînés à partir de plusieurs datasets disponibles.
+- `models.py`définit quelques exemples de classifieurs types utilisés afin de faciliter leur définition (résaux de neurones, classifiers "standards", model mix).
 
-### TODO/idées
+Ces outils nécessitent pour fonctionner Keras et Scikit-Learn. Ils nécessitent de plus la création de certains répertoires :
+- `data/` : répertoire contenant a minima les données textuelles à classifier (fichiers `train.csv` et `test.csv`, téléchargeables sur [la page de la compétition Kaggle](https://www.kaggle.com/c/jigsaw-toxic-comment-classification-challenge/data)). Les fichiers `.csv` contenant les prédictions seront enregistrés ici.
+- `models/` : répertoire où seront sauvegardés automatiquement tous les modèles (NN) testés, afin de pouvoir les réutiliser facilement sans relancer l'apprentissage
+- `embeddings/` : répertoire contenant les fichiers d'embeddings pré-entraînés qui seront chargés automatiquement par la fonction `embeddings.load_pretrained_embeddings()`. Voir [A propos des embeddings pré-entrainés](#a-propos-des-embeddings-pré-entrainés).
 
-- tester les GRU plutôt que LSTM (plus léger, mais a plus de mal à exploiter le slongues dépendances)
-- implémenter une baseline sans embeddings/qui ne soit pas du deep learning
-- stacker des LSTM
-- enchainer LSTM puis convolution [ici](https://www.kaggle.com/fizzbuzz/bi-lstm-conv-layer-lb-score-0-9840), [là](https://www.kaggle.com/eashish/bidirectional-gru-with-convolution) ou encore [là](https://www.kaggle.com/tunguz/bi-gru-cnn-poolings-gpu-kernel-version)
-- tester les embeddings contextuels
-- embeddings fasttext
-- tester des entrées auxiliaires (nb de majuscules, ponctuation, longueur des commentaires, ...)
-- réduire l'overfitting (dropout spatial pour convolutions et lstm (`dropout=0.1, recurrent_dropout=0.1`) ou embeddings, plus de dropout et d'epochs, régularisation)
-- [concatenate avgPooling/maxPooling](https://www.kaggle.com/yekenot/pooled-gru-fasttext)
-- capsule net?
-- étudier l'influence du prétraitement (nettoyage des données, lower(), stop_words, ...)
-- plus de preprocessing [ici](https://www.kaggle.com/larryfreeman/toxic-comments-code-for-alexander-s-9872-model) ou [là](https://www.kaggle.com/fizzbuzz/toxic-data-preprocessing)
-
-Autres kernels intéressants :
- - https://www.kaggle.com/yekenot/pooled-gru-fasttext
- 
+Notebooks :
+- `Data Preprocessing for Toxic Comments.ipynb` : introduit le chargement, l'aperçu, le nettoyage et la conversion des données.
+- `models_testing.ipynb` : donne des exemples d'utilisation de réseaux de neurones dans le cadre de ce challenge en utilisant les outils présentés précédemment.
+- `models_not_nn_testing.ipynb` : idem que `models_testing.ipynb` mais pour des classifieurs non réseaux de neurones.
+- `contextual.ipynb`
 
 ## A propos des embeddings pré-entrainés
 
@@ -41,13 +39,14 @@ Le but est d'utiliser des embeddings pré-entrainés sur différents corpus, not
 - [GloVe entraîné sur Twitter](https://nlp.stanford.edu/projects/glove/) (dimensions 25, 50, 100, 200)
 - [GloVe entraîné sur Wikipedia 2014 + Gigaword 5](https://nlp.stanford.edu/projects/glove/) (dimensions 50, 100, 200, 300)
 - [word2vec entraîné sur Google News](https://code.google.com/archive/p/word2vec/) (dimension 300)
-- [fastText entraîné sur Common Crawl](https://fasttext.cc/docs/en/english-vectors.html)
+- [fastText entraîné sur Common Crawl](https://fasttext.cc/docs/en/english-vectors.html) (dimension 300)
 
 Pour charger les poids pré-entraînés d'une couche Keras Embeddings, il suffit d'appeler :
 ```
-# Load GloVe pre-trained embeddings
+import embeddings
+
 EMBEDDING_DIM = 200  # several embeddings sizes depending on source : 25, 50, 100, 200, 300 
-EMBEDDING_SOURCE = 'glove_wikipedia'  # {'glove_twitter', 'glove_wikipedia', 'word2vec_googlenews'}
+EMBEDDING_SOURCE = 'glove_wikipedia'  # {'glove_twitter', 'glove_wikipedia', 'word2vec_googlenews', 'fasttext_crawl'}
 
 embeddings_matrix = embeddings.load_pretrained_embeddings(tokenizer.word_index, 
                                                           VOCAB_SIZE, 
@@ -60,6 +59,29 @@ emb = Embedding(vocab_size, embedding_dim, input_length=sentence_length,
                 weights=[embedding_matrix])(input)
 ```
 
-## Modèles de réseaux disponibles
+## A propos des embeddings contextuels
 
-2 réseaux sont actuellement disponibles, le modèle de Yoon Kim et un modèle de LSTM bidirectionnel. Ils peuvent être chargés facilement grâce aux fonctions `models.yoon_kim()` et `models.bidirectional_lstm()`.
+TODO
+
+## Done
+
+- implémenter une baseline (LSTM + pooling)
+- implémenter le modèle de Yoon Kim (convolutions)
+- utiliser des embeddings pré-entrainés (Glove, Word2Vec, FastText, Freebase)
+- tester des entrées auxiliaires (nb de majuscules, ponctuation, longueur des commentaires, ...)
+- tester les GRU plutôt que LSTM (plus léger, mais a plus de mal à exploiter le0 slongues dépendances)
+- implémenter des modèles qui ne soient pas du deep learning
+- stacker des LSTM
+- enchainer LSTM puis convolution (exemples [ici](https://www.kaggle.com/fizzbuzz/bi-lstm-conv-layer-lb-score-0-9840), [là](https://www.kaggle.com/eashish/bidirectional-gru-with-convolution) ou encore [là](https://www.kaggle.com/tunguz/bi-gru-cnn-poolings-gpu-kernel-version))
+- tester les embeddings contextuels
+- augmentation synthétique des données
+
+## TODO
+
+- optimisation des paramètres des modèles déjà existants (taille vocabulaire, longueurs phrases, pré-traitement, dimension et initialisation des embeddings, LSTM/GRU, tailles et nombre de couches, ...)
+- réduire l'overfitting (dropout spatial/récurrent/normal, plus de dropout et d'epochs, régularisation, ...)
+- étudier plus en détail l'influence du prétraitement (nettoyage des données, lower(), stop_words, ...)
+- essayer plus de model mix
+- plus de preprocessing (exemples [ici](https://www.kaggle.com/larryfreeman/toxic-comments-code-for-alexander-s-9872-model) ou [là](https://www.kaggle.com/fizzbuzz/toxic-data-preprocessing))
+- capsule net?
+- approfondir l'utilisation des embeddings contextuels

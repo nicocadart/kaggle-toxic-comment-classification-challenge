@@ -12,16 +12,15 @@ import numpy as np
 
 from tools import evaluate
 
+
 # TODO : add spatial dropout and/or batch norm
 # TODO : stack LSTM layers in bidirectional_lstm()
 # TODO : add regularization to limit over-fitting
 # TODO : add normalization and dense layer after auxiliary input?
-# TODO : Doc
 
 ##########################################
 ########### NEURAL NETS ##################
 ##########################################
-
 
 def yoon_kim(sentence_length=200, vocab_size=30000,
              n_filters=100, filters_sizes=(3, 5, 7),
@@ -215,11 +214,11 @@ class NbSvmClassifier(BaseEstimator, ClassifierMixin):
         x, y = check_X_y(x, y, accept_sparse=True)
 
         def pr(x, y_i, y):
-            idx = np.where(y==y_i)
+            idx = np.where(y == y_i)
             p = x[idx].sum(0)
-            return (p+1) / ((y==y_i).sum()+1)
+            return (p + 1) / ((y == y_i).sum() + 1)
 
-        self._r = sparse.csr_matrix(np.log(pr(x,1,y) / pr(x,0,y)))
+        self._r = sparse.csr_matrix(np.log(pr(x, 1, y) / pr(x, 0, y)))
         x_nb = x.multiply(self._r)
         self._clf = LogisticRegression(C=self.C, dual=self.dual, n_jobs=self.n_jobs, solver=self.solver).fit(x_nb, y)
         return self
@@ -236,24 +235,22 @@ class OneVAllClassifier(BaseEstimator, ClassifierMixin):
             for i_class in range(self.n_classes):
                 param_clf = {}
                 for (param, param_val) in params.items():
-                    assert(len(param_val)==self.n_classes)
+                    assert (len(param_val) == self.n_classes)
                     param_clf[param] = param_val[i_class]
                 self.models.append(clf(**param_clf))
         else:
             for i_class in range(self.n_classes):
                 self.models.append(clf())
 
-
     def fit(self, X, y):
 
-        assert(y.shape[1]==self.n_classes)
+        assert (y.shape[1] == self.n_classes)
 
         for i_class in range(self.n_classes):
             print('Fitting model {}:'.format(i_class))
             self.models[i_class].fit(X, y[:, i_class])
 
         return self
-
 
     def predict_proba(self, X):
 
@@ -263,7 +260,6 @@ class OneVAllClassifier(BaseEstimator, ClassifierMixin):
             y_pred[:, i_class] = self.models[i_class].predict_proba(X)[:, 1]
 
         return y_pred
-
 
     def predict(self, X):
 
@@ -295,7 +291,7 @@ def model_mix(y_preds, y_true):
     names, y_pred_list = zip(*y_preds)
 
     for i in range(len(names)):
-        assert(y_pred_list[i].shape==y_true.shape)
+        assert (y_pred_list[i].shape == y_true.shape)
         print('Prediction score: {:.4f}'.format(evaluate(y_true, y_pred_list[i])))
 
     # --------------------------------
@@ -334,7 +330,6 @@ def model_mix_predict(y_preds, optimal_weights):
     @return:
             y_pred_p: ndarray, (n_samples, n_classes), probability for each class for each sample
     """
-
     names, y_pred_list = zip(*y_preds)
 
     final_prediction = np.zeros(y_pred_list[0].shape)
