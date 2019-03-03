@@ -115,9 +115,9 @@ def bidirectional_lstm(sentence_length=200, vocab_size=30000,
         x = concatenate([x, aux_input])
 
     # dense 1
-    # x = Dense(50, activation="relu")(x)
+    x = Dense(50, activation="relu")(x)
     # dropout 1
-    # x = Dropout(0.1)(x)
+    x = Dropout(0.1)(x)
 
     # final dense
     outp = Dense(6, activation="sigmoid")(x)
@@ -198,19 +198,47 @@ class NbSvmClassifier(BaseEstimator, ClassifierMixin):
         self.n_jobs = n_jobs
         self.solver = solver
 
+
     def predict(self, x):
+        """
+        Give prediction with learned model on given data
+
+        :param x: scipy sparse matrix, (n_samples, n_features)
+
+        :return prediction: ndarray (n_samples, n_classes), binary prediction
+                            for each class
+        """
         # Verify that model has been fit
         check_is_fitted(self, ['_r', '_clf'])
         return self._clf.predict(x.multiply(self._r))
 
+
     def predict_proba(self, x):
+        """
+        Give class probability prediction with learned model on given data
+
+        :param X: scipy sparse matrix, (n_samples, n_features)
+
+        :return prediction: ndarray (n_samples, n_classes), probability prediction
+                            for each class given by the model
+        """
+
         # Verify that model has been fit
         check_is_fitted(self, ['_r', '_clf'])
         return self._clf.predict_proba(x.multiply(self._r))
 
+
     def fit(self, x, y):
+        """
+        Learn the NBSVM model on x according to y, compute prior and fit
+         LogisticRegression regression on biased data
+
+        :param x: scipy sparse matrix, (n_samples, n_features)
+        :param y: numpy array, (n_samples,)
+
+        :return model: the learned model
+        """
         # Check that X and y have correct shape
-        # y = y.values
         x, y = check_X_y(x, y, accept_sparse=True)
 
         def pr(x, y_i, y):
@@ -242,7 +270,17 @@ class OneVAllClassifier(BaseEstimator, ClassifierMixin):
             for i_class in range(self.n_classes):
                 self.models.append(clf())
 
+
     def fit(self, X, y):
+        """
+        Learn the 1vsAll model on x according to y, by fitting a model of the
+            specified estimator for each class.
+
+        :param x: scipy sparse matrix, (n_samples, n_features)
+        :param y: numpy array, (n_samples,)
+
+        :return model: the learned model
+        """
 
         assert (y.shape[1] == self.n_classes)
 
@@ -252,7 +290,16 @@ class OneVAllClassifier(BaseEstimator, ClassifierMixin):
 
         return self
 
+
     def predict_proba(self, X):
+        """
+        Give class probability prediction with learned model on given data
+
+        :param X: scipy sparse matrix, (n_samples, n_features)
+
+        :return prediction: ndarray (n_samples, n_classes), probability prediction
+                            for each class given by each 1vAll model
+        """
 
         y_pred = np.ones((X.shape[0], self.n_classes))
 
@@ -261,7 +308,16 @@ class OneVAllClassifier(BaseEstimator, ClassifierMixin):
 
         return y_pred
 
+
     def predict(self, X):
+        """
+        Give prediction with learned model on given data
+
+        :param X: scipy sparse matrix, (n_samples, n_features)
+
+        :return prediction: ndarray (n_samples, n_classes), binary prediction
+                            for each class given by each 1vAll model
+        """
 
         y_pred = np.ones((X.shape[0], self.n_classes))
 
@@ -271,6 +327,7 @@ class OneVAllClassifier(BaseEstimator, ClassifierMixin):
         return y_pred
 
 
+
 ##########################################
 ########### MODEL MIX ####################
 ##########################################
@@ -278,21 +335,19 @@ class OneVAllClassifier(BaseEstimator, ClassifierMixin):
 
 def model_mix(y_preds, y_true):
     """
-    @brief: Load prediction for different models and compute optimal weights for model mix
-    @param:
-            y_preds: list of tuple (str, ndarray), each tuple has the name of a
+    Load prediction for different models and compute optimal weights for model mix
+    :param y_preds: list of tuple (str, ndarray), each tuple has the name of a
                     model and a ndarray of predicted proba for each class
-            y_true: ndarray (n_samples, n_classes), should have the same shape as all y_preds
+    :param y_true: ndarray (n_samples, n_classes), should have the same shape as all y_preds
 
-    @return:
-            optimal_weights: weights for ponderation between model prediction,
+    :return optimal_weights: weights for ponderation between model prediction,
                              optimized for those models
      """
     names, y_pred_list = zip(*y_preds)
 
     for i in range(len(names)):
         assert (y_pred_list[i].shape == y_true.shape)
-        print('Prediction score: {:.4f}'.format(evaluate(y_true, y_pred_list[i])))
+        print('Prediction score on {}: {:.4f}'.format(names[i], evaluate(y_true, y_pred_list[i])))
 
     # --------------------------------
     #  Find ensemble learning weights
@@ -300,13 +355,15 @@ def model_mix(y_preds, y_true):
 
     # We want to minimize the logloss of the global prediction
     def score_func(weights, func=evaluate):
+        import time
         final_prediction = 0
         for weight, prediction in zip(weights, y_pred_list):
             final_prediction += weight * prediction
-        return func(y_true, final_prediction)
+        return -func(y_true, final_prediction)
 
     # Uniform initialisation
     init_weights = np.ones((len(y_pred_list),)) / len(y_pred_list)
+    print('Initial mix score: {:.4f}'.format(-score_func(init_weights)))
     # Weights are in range [0; 1] and must sum to 1
     constraint = ({'type': 'eq', 'fun': lambda w: 1 - sum(w)})
     bounds = [(0, 1)] * len(y_pred_list)
@@ -314,21 +371,20 @@ def model_mix(y_preds, y_true):
     res = minimize(score_func, init_weights, method='SLSQP', bounds=bounds, constraints=constraint)
     optimal_weights = res['x']
 
-    print('Model mix prediction on train: {:.4f}'.format(score_func(optimal_weights)))
+    print('Model mix prediction on train: {:.4f}'.format(-score_func(optimal_weights)))
 
     return optimal_weights
 
 
 def model_mix_predict(y_preds, optimal_weights):
     """
-    @brief: take a list of sklearn models, weights and a dataset and return the weighted prediction
+    Take a list of sklearn models, weights and a dataset and return the weighted prediction
             over the samples
-    @param:
-            X: ndarray, (n_samples, n_features), dataset to predict
-            models: list of tuple (name, model, fit_params), with model a sklearn model already trained
-            optimal_weights: list of float, weight for each model (sum(weight)==1)
-    @return:
-            y_pred_p: ndarray, (n_samples, n_classes), probability for each class for each sample
+    :param X: ndarray, (n_samples, n_features), dataset to predict
+    :param models: list of tuple (name, model, fit_params), with model a sklearn model already trained
+    :param optimal_weights: list of float, weight for each model (sum(weight)==1)
+
+    :return y_pred_p: ndarray, (n_samples, n_classes), probability for each class for each sample
     """
     names, y_pred_list = zip(*y_preds)
 

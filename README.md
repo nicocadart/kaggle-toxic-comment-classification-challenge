@@ -32,6 +32,7 @@ Notebooks :
 - `models_testing.ipynb` : donne des exemples d'utilisation de réseaux de neurones dans le cadre de ce challenge en utilisant les outils présentés précédemment.
 - `models_not_nn_testing.ipynb` : idem que `models_testing.ipynb` mais pour des classifieurs non réseaux de neurones.
 - `contextual.ipynb`
+- `Models mix.ipynb` :  Permet d'entraîner une méthode d'ensemble (pondération des résultats) à partir de prédicitons d'autres modèles déjà entraînés (voir plus bas)
 
 ## A propos des embeddings pré-entrainés
 
@@ -45,19 +46,22 @@ Pour charger les poids pré-entraînés d'une couche Keras Embeddings, il suffit
 ```
 import embeddings
 
-EMBEDDING_DIM = 200  # several embeddings sizes depending on source : 25, 50, 100, 200, 300 
+EMBEDDING_DIM = 200  # several embeddings sizes depending on source : 25, 50, 100, 200, 300
 EMBEDDING_SOURCE = 'glove_wikipedia'  # {'glove_twitter', 'glove_wikipedia', 'word2vec_googlenews', 'fasttext_crawl'}
 
-embeddings_matrix = embeddings.load_pretrained_embeddings(tokenizer.word_index, 
-                                                          VOCAB_SIZE, 
-                                                          EMBEDDING_DIM, 
+embeddings_matrix = embeddings.load_pretrained_embeddings(tokenizer.word_index,
+                                                          VOCAB_SIZE,
+                                                          EMBEDDING_DIM,
                                                           EMBEDDING_SOURCE)
 ```
 Puis de donner cette matrice de poids directement en paramètre de la couche Keras:
 ```
-emb = Embedding(vocab_size, embedding_dim, input_length=sentence_length, 
+emb = Embedding(vocab_size, embedding_dim, input_length=sentence_length,
                 weights=[embedding_matrix])(input)
 ```
+## A propos du model mix
+Pour rajouter un modèle, il faut générer une prédiction sur *l'ensemble* de la base d'apprentissage (train+val, variable `y_train_all` dans la plupart des notebooks) et d'enregistrer la prédiction avec la fonction `save_pred`. Il faut également enregistrer la prédiction sur la base de test, avec le même nom de modèle que pour l'apprentissage, auquel on ajoute `_test`.
+Enfin, le notebook `Model mix` permet de spécifier le nom des modèles que l'on veut "mixer", il s'occupe de les charger, d'afficher le score pour chaque modèle, le résultat initial (pondération uniforme) puis le score final, et enfin d'écrire un fichier de soumission pour kaggle avec les fichiers test. 
 
 ## A propos des embeddings contextuels
 
