@@ -60,12 +60,9 @@ model.compile(loss="binary_crossentropy",optimizer="adam",metrics=["accuracy"])
 
 model.fit(train_text,train_label,epochs=2,batch_size=64)
 
-# save trained nnet to disk for later use
-MODEL_NAME = "elmo_sentence50_elmo2_dense256"
-save_nnet(model, MODEL_NAME)
-
 # predict
 y_test_pred = model.predict(test_text, batch_size=64)
 
 # write submission file
+MODEL_NAME = "elmo_sentence50_elmo2_dense256"
 submission(y_test_pred, id_test, name=MODEL_NAME)
