@@ -65,7 +65,13 @@ Enfin, le notebook `Model mix` permet de spécifier le nom des modèles que l'on
 
 ## A propos des embeddings contextuels
 
-TODO
+Attention, ces modèles sont longs à entraîner, au moins en l'état (d'autres librairies n'ont pas pu être testées mais existent). Compter une vingtaine de minutes pas époque pour ELMo avec les paramètres évoqués, et 3h40 pour BERT, sachant que ces temps ont été observés sur une VM Google Compute Engine associant 8 threads et 1 GPU Tesla V100.
+
+### ELMo
+
+script elmo.py
+
+nécessite l'installation de tensorflow_hub: `pip install tensorflow_hub`
 
 ## Done
 
@@ -88,4 +94,4 @@ TODO
 - essayer plus de model mix
 - plus de preprocessing (exemples [ici](https://www.kaggle.com/larryfreeman/toxic-comments-code-for-alexander-s-9872-model) ou [là](https://www.kaggle.com/fizzbuzz/toxic-data-preprocessing))
 - capsule net?
-- approfondir l'utilisation des embeddings contextuels
+- approfondir l'utilisation des embeddings contextuels (architecture derrière les embeddings, dimensions des embeddings, comparer les déclinaisons de pré-entraînement de ELMo et BERT)
