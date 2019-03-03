@@ -73,6 +73,25 @@ script elmo.py
 
 nécessite l'installation de tensorflow_hub: `pip install tensorflow_hub`
 
+permet d'aller chercher le modèle ELMo pré-entraîné sur https://tfhub.dev/google/elmo/2 (lien donnant accès à une précieuse documentation)
+
+code inspiré par https://github.com/PrashantRanjan09/WordEmbeddings-Elmo-Fasttext-Word2Vec
+
+### BERT
+
+script bert.py
+
+utilise la librairie bert-as-service: https://github.com/hanxiao/bert-as-service
+```
+pip install bert-serving-server  # server
+pip install bert-serving-client  # client, independent of `bert-serving-server`
+```
+Fonctionne sur le principe d'un client qui dans le script va demander au serveur d'encoder en BERT nos commentaires. Il faut donc veiller, avant de lancer le script, à lancer le serveur sur la même machine dans un screen séparé, par exemple avec la commande type suivante:
+`bert-serving-start -pooling_strategy REDUCE_MEAN -model_dir ./bert_as_service/uncased_L-12_H-768_A-12/ -max_seq_len 40 -num_worker=1`
+
+Notons également qu'il faut télécharger le modèle pré-entraîné exploité par le serveur, `./bert_as_service/uncased_L-12_H-768_A-12/` dans la commande précédente. Ces modèles pré-entraînés sont notamment disponibles sur le répo original de BERT https://github.com/google-research/bert#pre-trained-models
+
+
 ## Done
 
 - implémenter une baseline (LSTM + pooling)
