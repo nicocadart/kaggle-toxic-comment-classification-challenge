@@ -89,7 +89,7 @@ pip install bert-serving-client  # client, independent of `bert-serving-server`
 Fonctionne sur le principe d'un client qui dans le script va demander au serveur d'encoder en BERT nos commentaires. Il faut donc veiller, avant de lancer le script, à lancer le serveur sur la même machine dans un screen séparé, par exemple avec la commande type suivante:
 `bert-serving-start -pooling_strategy REDUCE_MEAN -model_dir ./bert_as_service/uncased_L-12_H-768_A-12/ -max_seq_len 40 -num_worker=1`
 
-Notons également qu'il faut télécharger le modèle pré-entraîné exploité par le serveur, `./bert_as_service/uncased_L-12_H-768_A-12/` dans la commande précédente. Ces modèles pré-entraînés sont notamment disponibles sur le répo original de BERT https://github.com/google-research/bert#pre-trained-models
+Notons également qu'il faut télécharger le modèle pré-entraîné exploité par le serveur, `./bert_as_service/uncased_L-12_H-768_A-12/` dans la commande précédente. Ces modèles pré-entraînés sont notamment disponibles sur le git original de BERT https://github.com/google-research/bert#pre-trained-models
 
 
 ## Done
