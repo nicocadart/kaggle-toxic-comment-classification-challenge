@@ -77,23 +77,23 @@ print("End train-valid split")
 # https://github.com/hanxiao/bert-as-service
 bc = BertClient(check_length=False)
 
-print("Beginning valid Elmo encoding")
-#(Nbr valid sentences, seq length, emb size)
+print("Beginning valid BERT encoding")
+#(Nbr valid sentences, emb size)
 all_valid_embeddings = bc.encode(X_valid)
 print(all_valid_embeddings.shape)
-print("End valid Elmo encoding")
+print("End valid BERT encoding")
 
-print("Beginning train Elmo encoding")
-#(Nbr train sentences, seq length, emb size)
+print("Beginning train BERT encoding")
+#(Nbr train sentences, emb size)
 all_train_embeddings = bc.encode(X_train)
 print(all_train_embeddings.shape)
-print("End train Elmo encoding")
+print("End train BERT encoding")
 
-print("Beginning test Elmo encoding")
-#(Nbr train sentences, seq length, emb size)
+print("Beginning test BERT encoding")
+#(Nbr test sentences, emb size)
 all_test_embeddings = bc.encode(data_test)
 print(all_test_embeddings.shape)
-print("End test Elmo encoding")
+print("End test BERT encoding")
 
 ######################
 ## RESHAPING INPUTS ##
