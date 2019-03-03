@@ -29,11 +29,11 @@ K.set_session(sess)
 data_train, y_train_all, data_test, id_test = load_data()
 
 # Create datasets (Only take up to 150 words for memory)
-train_text = [' '.join(t.split()[0:50]) for t in data_train]
+train_text = [' '.join(t.split()[0:100]) for t in data_train]
 train_text = np.array(train_text, dtype=object)[:, np.newaxis]
 train_label = y_train_all
 
-test_text = [' '.join(t.split()[0:50]) for t in data_test]
+test_text = [' '.join(t.split()[0:100]) for t in data_test]
 test_text = np.array(test_text, dtype=object)[:, np.newaxis]
 
 ######################################################################################
@@ -64,5 +64,5 @@ model.fit(train_text,train_label,epochs=2,batch_size=64)
 y_test_pred = model.predict(test_text, batch_size=64)
 
 # write submission file
-MODEL_NAME = "elmo_sentence50_elmo2_dense256"
+MODEL_NAME = "elmo_sentence100_elmo2_dense256"
 submission(y_test_pred, id_test, name=MODEL_NAME)

@@ -149,9 +149,6 @@ hist = model.fit(all_train_embeddings, y_train,
                  validation_data=(all_valid_embeddings, y_valid),
                  callbacks=[RocAuc])
 
-# save trained nnet to disk for later use
-save_nnet(model, MODEL_NAME)
-
 # final model evaluation
 y_train_pred = model.predict(all_train_embeddings, batch_size=64)
 train_score = evaluate(y_train, y_train_pred)
