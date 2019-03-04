@@ -43,7 +43,7 @@ test_text = np.array(test_text, dtype=object)[:, np.newaxis]
 def ELMoEmbedding(x):
     # on va chercher le modèle sur tfhub.dev, on y trouve également des explications et exemples
     elmo_model = hub.Module("https://tfhub.dev/google/elmo/2", trainable=True)
-    # "default": fixed mean-pooling of all contextualized word representations with shape [batch_size, 1024]
+    # "default": fixed mean-pooling of all contextualized word representations
     return elmo_model(tf.squeeze(tf.cast(x, tf.string)), signature="default", as_dict=True)["default"]
 
 ###########
